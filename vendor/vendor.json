@@ -1,0 +1,85 @@
+{
+	"comment": "",
+	"ignore": "",
+	"package": [
+		{
+			"checksumSHA1": "Y9W+4GimK4Fuxq+vyIskVYFRnX4=",
+			"path": "github.com/aws/aws-sdk-go/aws/awserr",
+			"revision": "50e2f0627dec4e2508ea825884a551ecd393425c",
+			"revisionTime": "2018-11-18T00:35:51Z"
+		},
+		{
+			"checksumSHA1": "P6YTSdQC2IddoAgpKZIn98nh1eY=",
+			"path": "github.com/aws/aws-sdk-go/aws/client",
+			"revision": "50e2f0627dec4e2508ea825884a551ecd393425c",
+			"revisionTime": "2018-11-18T00:35:51Z"
+		},
+		{
+			"checksumSHA1": "lCn3bSZDbC55/3/ERGvO0apRvmY=",
+			"path": "github.com/aws/aws-sdk-go/aws/corehandlers",
+			"revision": "50e2f0627dec4e2508ea825884a551ecd393425c",
+			"revisionTime": "2018-11-18T00:35:51Z"
+		},
+		{
+			"checksumSHA1": "YmDNehK8NyiyRhI2qsWKi9MlRkM=",
+			"path": "github.com/aws/aws-sdk-go/aws/credentials/stscreds",
+			"revision": "50e2f0627dec4e2508ea825884a551ecd393425c",
+			"revisionTime": "2018-11-18T00:35:51Z"
+		},
+		{
+			"checksumSHA1": "vWScDgHbgAKqwaKCD+HUygnyu4Q=",
+			"path": "github.com/aws/aws-sdk-go/aws/session",
+			"revision": "50e2f0627dec4e2508ea825884a551ecd393425c",
+			"revisionTime": "2018-11-18T00:35:51Z"
+		},
+		{
+			"checksumSHA1": "G9QZRIujEdzaEIVteQZfqtwZ4l8=",
+			"path": "github.com/aws/aws-sdk-go/internal/ini",
+			"revision": "50e2f0627dec4e2508ea825884a551ecd393425c",
+			"revisionTime": "2018-11-18T00:35:51Z"
+		},
+		{
+			"checksumSHA1": "wjxQlU1PYxrDRFoL1Vek8Wch7jk=",
+			"path": "github.com/aws/aws-sdk-go/internal/sdkio",
+			"revision": "50e2f0627dec4e2508ea825884a551ecd393425c",
+			"revisionTime": "2018-11-18T00:35:51Z"
+		},
+		{
+			"checksumSHA1": "MYLldFRnsZh21TfCkgkXCT3maPU=",
+			"path": "github.com/aws/aws-sdk-go/internal/sdkrand",
+			"revision": "50e2f0627dec4e2508ea825884a551ecd393425c",
+			"revisionTime": "2018-11-18T00:35:51Z"
+		},
+		{
+			"checksumSHA1": "urlvXH1VjW4+PgIqCWnmIejfmro=",
+			"path": "github.com/aws/aws-sdk-go/internal/shareddefaults",
+			"revision": "50e2f0627dec4e2508ea825884a551ecd393425c",
+			"revisionTime": "2018-11-18T00:35:51Z"
+		},
+		{
+			"checksumSHA1": "3HrhQ0eiPWtsnq09SsSyh1gDpGk=",
+			"path": "github.com/aws/aws-sdk-go/service/iam",
+			"revision": "50e2f0627dec4e2508ea825884a551ecd393425c",
+			"revisionTime": "2018-11-18T00:35:51Z"
+		},
+		{
+			"checksumSHA1": "RUWE0R/YVHOpice7JGvneuR3n2g=",
+			"path": "github.com/aws/aws-sdk-go/service/sts",
+			"revision": "50e2f0627dec4e2508ea825884a551ecd393425c",
+			"revisionTime": "2018-11-18T00:35:51Z"
+		},
+		{
+			"checksumSHA1": "Z0C6INu6EiofsKLgMNJa8IjT1Gg=",
+			"path": "github.com/micro/cli",
+			"revision": "3d2263bb092286dde294a31049c92665f8373820",
+			"revisionTime": "2016-04-06T21:54:05Z"
+		},
+		{
+			"checksumSHA1": "D6/+0pCzjo352vpeHsQQmhro2Uw=",
+			"path": "github.com/tkuchiki/aws-cert-utils",
+			"revision": "d11e814b9313c2974c2363fdb7afe0fcfc1a6074",
+			"revisionTime": "2017-12-04T07:04:45Z"
+		}
+	],
+	"rootPath": "github.com/sreejita-biswas/aws-plugins"
+}

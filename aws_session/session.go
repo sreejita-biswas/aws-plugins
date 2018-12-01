@@ -3,17 +3,20 @@ package aws_session
 import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/sreejita-biswas/aws-plugins/config"
 )
 
 var aws_session *session.Session
 
-func CreateAwsSession(config config.Config) *session.Session {
+func CreateAwsSession() *session.Session {
 
 	// Create a Session with a custom region
 	aws_session := session.Must(session.NewSession(&aws.Config{
-		Region: aws.String(config.AwsRegion),
+		Region: aws.String("us-west-2"),
 	}))
+
+	// aws_session := session.Must(session.NewSessionWithOptions(session.Options{
+	// 	SharedConfigState: session.SharedConfigEnable,
+	// }))
 
 	return aws_session
 }

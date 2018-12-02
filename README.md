@@ -82,7 +82,7 @@ Output : Critical threshold for filter ,  Current Count : 1
 ## Binary Generation
 
 ```
-Environment : MAC OS
+Environment : MAC OS/Linux
 
 1. Install Go - https://nats.io/documentation/tutorials/go-install/
 2. Clone the code using command - "go get github.com/sreejita-biswas/aws-plugins"

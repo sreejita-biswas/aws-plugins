@@ -1,6 +1,29 @@
 package main
 
+/* check-ec2-cpu_balance
+#
+# DESCRIPTION:
+#   This plugin retrieves the value of the cpu balance for all servers
+#
+# OUTPUT:
+#   plain-text
+#
+# PLATFORMS:
+#   MAC OS
+#
+# USAGE:
+#   ./check-ec2-cpu_balance -critical=3
+#   ./check-ec2-cpu_balance -critical=1 -warning=5
+#   ./check-ec2-cpu_balance -critical=1 -warning=5 -tag=TESTING
+#
+# NOTES:
+#
+# LICENSE:
+#   TODO
+*/
+
 import (
+	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -11,13 +34,14 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/sreejita-biswas/aws-plugins/aws_clients"
 	"github.com/sreejita-biswas/aws-plugins/aws_session"
-	"github.com/sreejita-biswas/aws-plugins/config"
 )
 
 var (
-	conf             config.Config
-	ec2Client        *ec2.EC2
-	cloudWatchClient *cloudwatch.CloudWatch
+	ec2Client         *ec2.EC2
+	cloudWatchClient  *cloudwatch.CloudWatch
+	criticalThreshold float64
+	warningThreshold  float64
+	tagValue          string
 )
 
 func getEc2CpuBalance(instance ec2.Instance) (*float64, error) {
@@ -31,8 +55,8 @@ func getEc2CpuBalance(instance ec2.Instance) (*float64, error) {
 	dimensionFilter.Name = aws.String("InstanceId")
 	dimensionFilter.Value = instance.InstanceId
 	input.Dimensions = []*cloudwatch.Dimension{&dimensionFilter}
-	input.StartTime = aws.Time(time.Now())
 	input.EndTime = aws.Time(time.Now())
+	input.StartTime = aws.Time(time.Now().Add(time.Duration(-30*(period/60)) * time.Minute))
 	input.Period = aws.Int64(period)
 	input.Statistics = []*string{aws.String(stats)}
 	metrics, err := cloudWatchClient.GetMetricStatistics(&input)
@@ -48,14 +72,12 @@ func getEc2CpuBalance(instance ec2.Instance) (*float64, error) {
 }
 
 func getMatchingInstanceTag(instance ec2.Instance) *string {
-
 	for _, tag := range instance.Tags {
-		if *tag.Key == conf.Tag {
+		if *tag.Key == tagValue {
 			return tag.Value
 		}
 	}
 	return nil
-
 }
 
 func getReservations() ([]*ec2.Reservation, error) {
@@ -77,13 +99,10 @@ func getReservations() ([]*ec2.Reservation, error) {
 func main() {
 
 	var reservations []*ec2.Reservation
-	os.Setenv("AWS_ACCESS_KEY_ID", "AKIAIOSFODNN7EXAMPLE")
-	os.Setenv("AWS_ACCESS_KEY", "AKIAIOSFODNN7EXAMPLE")
-	os.Setenv("AWS_SECRET_ACCESS_KEY", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
-	os.Setenv("AWS_SECRET_KEY", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
-	os.Setenv("AWS_REGION", "us-west-2")
-	os.Setenv("AWS_DEFAULT_REGION", "us-west-2")
-
+	flag.Float64Var(&criticalThreshold, "critical", 1.2, "Trigger a critical when value is below the criticalThreshold.")
+	flag.Float64Var(&warningThreshold, "warning", 2.3, "Trigger a warning when value is below warningThreshold")
+	flag.StringVar(&tagValue, "tag", "NAME", "Add instance TAG value to warn/critical message.")
+	flag.Parse()
 	awsSession := aws_session.CreateAwsSession()
 
 	if awsSession != nil {
@@ -104,7 +123,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	cloudWatchClient = aws_clients.NewCloudWatch()
+	cloudWatchClient = aws_clients.NewCloudWatch(awsSession)
 
 	if cloudWatchClient == nil {
 		fmt.Errorf("Failed to create cloud watch client")
@@ -121,10 +140,10 @@ func main() {
 				}
 				tagValue := getMatchingInstanceTag(*instance)
 				if tagValue != nil {
-					if *cpuBalance < conf.Critical {
-						fmt.Println(*instance.InstanceId, *tagValue, "is below critical threshold", " [ cpuBalance < ", conf.Critical, " ]")
-					} else if *cpuBalance < conf.Warning {
-						fmt.Println(*instance.InstanceId, *tagValue, "is below warning threshold", " [ cpuBalance < ", conf.Warning, " ]")
+					if *cpuBalance < criticalThreshold {
+						fmt.Println(*instance.InstanceId, *tagValue, "is below critical threshold", " [ cpuBalance < ", criticalThreshold, " ]")
+					} else if *cpuBalance < warningThreshold {
+						fmt.Println(*instance.InstanceId, *tagValue, "is below warning threshold", " [ cpuBalance < ", warningThreshold, " ]")
 					}
 				}
 			}

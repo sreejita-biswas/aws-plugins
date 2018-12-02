@@ -34,6 +34,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/sreejita-biswas/aws-plugins/aws_clients"
 	"github.com/sreejita-biswas/aws-plugins/aws_session"
+	"github.com/sreejita-biswas/aws-plugins/utils"
 )
 
 var (
@@ -80,22 +81,6 @@ func getMatchingInstanceTag(instance ec2.Instance) *string {
 	return nil
 }
 
-func getReservations() ([]*ec2.Reservation, error) {
-	filter := ec2.Filter{Name: aws.String("instance-state-name"), Values: []*string{
-		aws.String("running")}}
-
-	input := &ec2.DescribeInstancesInput{
-		Filters: []*ec2.Filter{&filter},
-	}
-
-	result, err := ec2Client.DescribeInstances(input)
-	if err != nil {
-		return nil, err
-	}
-
-	return result.Reservations, nil
-}
-
 func main() {
 
 	var reservations []*ec2.Reservation
@@ -117,7 +102,10 @@ func main() {
 		os.Exit(0)
 	}
 
-	reservations, err := getReservations()
+	filter := ec2.Filter{Name: aws.String("instance-state-name"), Values: []*string{
+		aws.String("running")}}
+
+	reservations, err := utils.GetReservations(ec2Client, []*ec2.Filter{&filter})
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(0)

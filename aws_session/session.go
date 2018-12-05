@@ -14,3 +14,13 @@ func CreateAwsSession() *session.Session {
 
 	return aws_session
 }
+
+func CreateAwsSessionWithRegion(region string) *session.Session {
+
+	// Create a Session with a custom region
+	aws_session := session.Must(session.NewSession(&aws.Config{
+		Region: aws.String(region),
+	}))
+
+	return aws_session
+}

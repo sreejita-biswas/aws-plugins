@@ -117,6 +117,18 @@
 			"revisionTime": "2018-11-18T00:35:51Z"
 		},
 		{
+			"checksumSHA1": "aCGZATN/ISAoBHm6mwd/+jnZQSE=",
+			"path": "github.com/aws/aws-sdk-go/awstesting/integration",
+			"revision": "6c07f02fedfad07fe77b21209dbc90142f7ce5ef",
+			"revisionTime": "2018-12-04T22:46:40Z"
+		},
+		{
+			"checksumSHA1": "O4WiE/jSppgrsuKFFFaLnI0DX2w=",
+			"path": "github.com/aws/aws-sdk-go/awstesting/integration/s3integ",
+			"revision": "6c07f02fedfad07fe77b21209dbc90142f7ce5ef",
+			"revisionTime": "2018-12-04T22:46:40Z"
+		},
+		{
 			"checksumSHA1": "Til1RNskoxuni9LNTwJWzm1GKrU=",
 			"path": "github.com/aws/aws-sdk-go/awstesting/mock",
 			"revision": "50e2f0627dec4e2508ea825884a551ecd393425c",
@@ -303,10 +315,10 @@
 			"revisionTime": "2018-11-18T00:35:51Z"
 		},
 		{
-			"checksumSHA1": "XTixCm+WFYJUfy/IGDkv3asol7M=",
+			"checksumSHA1": "e5mKG7od7DvNK3kdTIoorMxY7eo=",
 			"path": "github.com/aws/aws-sdk-go/service/s3",
-			"revision": "50e2f0627dec4e2508ea825884a551ecd393425c",
-			"revisionTime": "2018-11-18T00:35:51Z"
+			"revision": "6c07f02fedfad07fe77b21209dbc90142f7ce5ef",
+			"revisionTime": "2018-12-04T22:46:40Z"
 		},
 		{
 			"checksumSHA1": "vDWDbRR0JZBbkeUEkgdoGhWmNz8=",

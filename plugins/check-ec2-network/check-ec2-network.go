@@ -88,8 +88,8 @@ func getEc2NetworkMetric(endTimeDate time.Time) (*float64, error) {
 }
 
 func main() {
-	flag.Float64Var(&criticalThreshold, "critical", 1.2, "Trigger a critical if network traffice is over specified Bytes")
-	flag.Float64Var(&warningThreshold, "warning", 2.3, "Trigger a warning if network traffice is over specified Bytes")
+	flag.Float64Var(&criticalThreshold, "critical", 1000000, "Trigger a critical if network traffice is over specified Bytes")
+	flag.Float64Var(&warningThreshold, "warning", 1500000, "Trigger a warning if network traffice is over specified Bytes")
 	flag.StringVar(&instanceId, "instance_id", "", "EC2 Instance ID to check.")
 	flag.StringVar(&endTime, "start_time", time.Now().Format(time.RFC3339), "CloudWatch metric statistics end time, e.g. 2014-11-12T11:45:26.371Z")
 	flag.Int64Var(&period, "period", 60, "CloudWatch metric statistics period in seconds")

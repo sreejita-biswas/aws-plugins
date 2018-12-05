@@ -6,15 +6,19 @@
 
 **check-ec2-filter**
 
+**check-ec2-network**
+
 ## Files
 
 * /plugins/check-ec2-cpu_balance/check-ec2-cpu_balance.go
-* /plugins/check-ec2-filter/check-ec2-filter.rb
+* /plugins/check-ec2-filter/check-ec2-filter.go
+* /plugins/check-ec2-network/check-ec2-network.go
 
 ## Binaries
 
 * /plugins/check-ec2-cpu_balance/bin/check-ec2-cpu_balance
 * /plugins/check-ec2-filter/bin/check-ec2-filter
+* /plugins/check-ec2-filter/bin/check-ec2-network
 
 ## Usage
 
@@ -51,7 +55,27 @@ Usage of ./check-ec2-filter:
     	Warning threshold for filter (default 2)
 
 ```
+**check-ec2-network**
 
+```
+$ ./check-ec2-network -h
+
+Usage of ./check-ec2-network:
+  -critical float
+    	Trigger a critical if network traffice is over specified Bytes (default 1e+06)
+  -direction string
+    	Select NetworkIn or NetworkOut (default "NetworkIn")
+  -instance_id string
+    	EC2 Instance ID to check.
+  -period int
+    	CloudWatch metric statistics period in seconds (default 60)
+  -start_time string
+    	CloudWatch metric statistics end time, e.g. 2014-11-12T11:45:26.371Z (default "2018-12-05T13:34:18+05:30")
+  -warning float
+    	Trigger a warning if network traffice is over specified Bytes (default 1.5e+06)
+      
+```
+   
 ## AWS Configuration
 
 ```

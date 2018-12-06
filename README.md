@@ -10,15 +10,15 @@
 
 ## Files
 
-* /plugins/check-ec2-cpu_balance/check-ec2-cpu_balance.go
-* /plugins/check-ec2-filter/check-ec2-filter.go
-* /plugins/check-ec2-network/check-ec2-network.go
+* /plugins/ec2/check-ec2-cpu_balance/check-ec2-cpu_balance.go
+* /plugins/ec2/check-ec2-filter/check-ec2-filter.go
+* /plugins/ec2/check-ec2-network/check-ec2-network.go
 
 ## Binaries
 
-* /plugins/check-ec2-cpu_balance/bin/check-ec2-cpu_balance
-* /plugins/check-ec2-filter/bin/check-ec2-filter
-* /plugins/check-ec2-filter/bin/check-ec2-network
+* /plugins/ec2/check-ec2-cpu_balance/bin/check-ec2-cpu_balance
+* /plugins/ec2/check-ec2-filter/bin/check-ec2-filter
+* /plugins/ec2/check-ec2-filter/bin/check-ec2-network
 
 ## Usage
 
@@ -112,6 +112,6 @@ Environment : MAC OS/Linux
 2. Clone the code using command - "go get github.com/sreejita-biswas/aws-plugins"
 3. $ cd ~/go/src/github.com/sreejita-biswas/aws-plugins/plugins/check-ec2-filter 
 4. go build check-ec2-filter.go
-5. You will find the binary in the current directory. If you want you can move the same to ~/go/src/github.com/sreejita-biswas/aws-plugins/plugins/check-ec2-filter/bin directory.
+5. You will find the binary in the current directory. If you want you can move the same to ~/go/src/github.com/sreejita-biswas/aws-plugins/plugins/ec2/check-ec2-filter/bin directory.
 
 ```

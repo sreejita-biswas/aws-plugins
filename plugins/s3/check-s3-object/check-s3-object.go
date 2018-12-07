@@ -15,9 +15,7 @@ package main
 #
 #
 # USAGE:
-#   ./check-s3-object.rb --bucket-name mybucket --aws-region eu-west-1 --use-iam --key-name "path/to/myfile.txt"
-#   ./check-s3-object.rb --bucket-name mybucket --aws-region eu-west-1 --use-iam --key-name "path/to/myfile.txt" --warning 90000 --critical 126000
-#   ./check-s3-object.rb --bucket-name mybucket --aws-region eu-west-1 --use-iam --key-name "path/to/myfile.txt" --warning 90000 --critical 126000 --ok-zero-size
+#   ./check-s3-object.go --bucket_name=sreejita-testing --key_prefix=s3
 #
 # NOTES:
 #
@@ -65,9 +63,9 @@ var (
 func main() {
 	flag.StringVar(&awsRegion, "aws_region", "us-east-2", "AWS Region (defaults to us-east-1).")
 	flag.BoolVar(&useIamRole, "use_iam_role", false, "Use IAM role authenticiation. Instance must have IAM role assigned for this to work")
-	flag.StringVar(&bucketName, "bucket_name", "sreejita-testing", "The name of the S3 bucket where object lives")
+	flag.StringVar(&bucketName, "bucket_name", "", "The name of the S3 bucket where object lives")
 	flag.StringVar(&keyName, "key_name", "", "The name of key in the bucket")
-	flag.StringVar(&keyPrefix, "key_prefix", "s3", "Prefix key to search on the bucket")
+	flag.StringVar(&keyPrefix, "key_prefix", "", "Prefix key to search on the bucket")
 	flag.Float64Var(&warningAge, "warning_age", 90000, "Warn if mtime greater than provided age in seconds")
 	flag.Float64Var(&criticalAge, "critical_age", 126000, "Critical if mtime greater than provided age in seconds")
 	flag.BoolVar(&okZeroSize, "ok_zero_size", true, "OK if file has zero size'")

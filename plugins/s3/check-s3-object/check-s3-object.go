@@ -95,10 +95,12 @@ func main() {
 
 	if len(strings.TrimSpace(bucketName)) == 0 {
 		fmt.Println("Enter a bucket name")
+		return
 	}
 
 	if (len(strings.TrimSpace(keyName)) == 0 && len(strings.TrimSpace(keyPrefix)) == 0) || (len(strings.TrimSpace(keyName)) > 0 && len(strings.TrimSpace(keyPrefix)) > 0) {
 		fmt.Println("Need one option between \"key_name\" and \"key_prefix\"")
+		return
 	}
 
 	if len(strings.TrimSpace(keyName)) > 0 {

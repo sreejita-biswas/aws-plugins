@@ -50,7 +50,7 @@ var (
 )
 
 func main() {
-	flag.StringVar(&awsRegion, "aws_region", "us-east-2", "AWS Region (defaults to us-east-1).")
+	flag.StringVar(&awsRegion, "aws_region", "us-east-1", "AWS Region (defaults to us-east-1).")
 	flag.BoolVar(&checkIgnored, "check_ignored", true, "mark as true to ignore volumes with an IGNORE_BACKUP tag")
 	flag.Int64Var(&period, "period", 7, "Length in time to alert on missing snapshots")
 	flag.Parse()
@@ -117,7 +117,7 @@ func main() {
 					return
 				}
 				if latestSnapshot != nil {
-					timeDiffrence := aws.Time(time.Now().Add(time.Duration(period*24*60) * time.Minute)).Sub(*latestSnapshot.StartTime)
+					timeDiffrence := aws.Time(time.Now().Add(-time.Duration(period*24*60) * time.Minute)).Sub(*latestSnapshot.StartTime)
 					if timeDiffrence.Seconds() < 0 {
 						errors = append(errors, fmt.Sprintf("%v latest snapshot is %v for Voulme %s \n", tagNames, *latestSnapshot.StartTime, *volume.VolumeId))
 					}

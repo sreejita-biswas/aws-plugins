@@ -134,7 +134,7 @@ func getMetric(volumeId string) (bool, bool, []string) {
 	if err != nil {
 		fmt.Println(err)
 	}
-	if metrics != nil && metrics.Datapoints != nil && len(metrics.Datapoints) > 1 {
+	if metrics != nil && metrics.Datapoints != nil && len(metrics.Datapoints) >= 1 {
 		var minimumTimeDifference float64
 		var timeDifference float64
 		var averageValue *float64

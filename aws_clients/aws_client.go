@@ -4,6 +4,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/elb"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/rds"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -32,4 +33,9 @@ func NewS3(awsSession *session.Session) *s3.S3 {
 func NewRDS(awsSession *session.Session) *rds.RDS {
 	rdsClient := rds.New(awsSession)
 	return rdsClient
+}
+
+func NewELB(awsSession *session.Session) *elb.ELB {
+	elbClient := elb.New(awsSession)
+	return elbClient
 }

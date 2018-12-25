@@ -122,7 +122,7 @@ func main() {
 			return
 		}
 		if !(output != nil && healtStatusOutput.InstanceStates != nil && len(healtStatusOutput.InstanceStates) > 0) {
-			return
+			continue
 		}
 
 		for _, instanceState := range healtStatusOutput.InstanceStates {

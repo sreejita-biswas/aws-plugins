@@ -207,7 +207,7 @@ func checkLatency(value float64, elb string, startTime string, endTime string) {
 		fmt.Println("CRTICAL : Latency Value for Load Balancer - ", elb, " between ", startTime, " and ", endTime, " is ", value, "(expected lower than ", criticalOver, ")")
 		return
 	}
-	if value >= criticalOver {
+	if value >= warningOver {
 		fmt.Println("WARNING : Latency Value for Load Balancer - ", elb, " between ", startTime, " and ", endTime, " is ", value, "(expected lower than ", criticalOver, ")")
 		return
 	}

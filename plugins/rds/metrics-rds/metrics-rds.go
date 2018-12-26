@@ -152,7 +152,7 @@ func getCloudWatchMetrics(metricname string, rdsName string) (*float64, *time.Ti
 	dimensionFilter.Value = aws.String(rdsName)
 	input.Dimensions = []*cloudwatch.Dimension{&dimensionFilter}
 	input.EndTime = aws.Time(time.Now().Add(time.Duration(-fetchAge/60) * time.Minute))
-	input.StartTime = aws.Time((input.EndTime).Add(time.Duration(-period/60) * time.Minute))
+	input.StartTime = aws.Time((*input.EndTime).Add(time.Duration(-period/60) * time.Minute))
 	input.Period = aws.Int64(period)
 	input.Statistics = []*string{aws.String(strings.Title(statistics))}
 	metrics, err := cloudWatchClient.GetMetricStatistics(&input)

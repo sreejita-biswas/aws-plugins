@@ -1,0 +1,154 @@
+package main
+
+import (
+	"flag"
+	"fmt"
+
+	"github.com/aws/aws-sdk-go/aws/awserr"
+
+	"github.com/aws/aws-sdk-go/service/elb"
+
+	"github.com/sreejita-biswas/aws-plugins/aws_clients"
+	"github.com/sreejita-biswas/aws-plugins/aws_session"
+
+	"github.com/aws/aws-sdk-go/aws/session"
+)
+
+/*
+#
+# check-elb-nodes
+#
+# DESCRIPTION:
+#   This plugin checks an AWS Elastic Load Balancer to ensure a minimum number
+#   or percentage of nodes are InService on the ELB
+#
+# OUTPUT:
+#   plain-text
+#
+# PLATFORMS:
+#   MAC OS
+#
+# USAGE:
+#   Warning if the load balancer has 3 or fewer healthy nodes and critical if 2 or fewer
+#   ./check-elb-nodes --warning=3 --critical=2 --load_balancer=#{your-load-balancer}
+#
+#   Warning if the load balancer has 50% or less healthy nodes and critical if 25% or less
+#   ./check-elb-nodes --warning_percentage=50 --critical_percentage=25 --load_balancer=#{your-load-balancer}
+#
+# NOTES:
+#
+# LICENSE:
+#   TODO
+#
+*/
+
+var (
+	awsregion          string
+	elbName            string
+	warning            int
+	critical           int
+	warningPercentage  float64
+	criticalPercentage float64
+	elbClient          *elb.ELB
+)
+
+func main() {
+	var awsSession *session.Session
+	var pecentage float64
+	getFlags()
+
+	if len(elbName) <= 0 {
+		fmt.Println("Please enter a load balance name")
+		return
+	}
+
+	if (critical == -1 || warning == -1) && (criticalPercentage == -1 || warningPercentage == -1) {
+		fmt.Println("please enter (critical and warning non zero positive value) and/or (critical percentage and warning percentage non zero positive value)")
+		return
+	}
+
+	awsSession = aws_session.CreateAwsSessionWithRegion(awsregion)
+
+	success := getElbClient(awsSession)
+	if !success {
+		return
+	}
+
+	input := &elb.DescribeInstanceHealthInput{}
+	input.LoadBalancerName = &elbName
+	output, err := elbClient.DescribeInstanceHealth(input)
+	if err != nil && err.(awserr.Error).Code() == "LoadBalancerNotFound" {
+		fmt.Println(err.(awserr.Error).Message())
+		return
+	}
+	if err != nil {
+		fmt.Println("An issue occured while communicating with the AWS EC2 API,", err)
+		return
+	}
+
+	if !(output != nil && output.InstanceStates != nil && len(output.InstanceStates) > 0) {
+		return
+	}
+
+	instancesStatesCountMap := make(map[string]int)
+	for _, instanceState := range output.InstanceStates {
+		instancesStatesCountMap[*instanceState.State] = instancesStatesCountMap[*instanceState.State] + 1
+	}
+
+	if len(instancesStatesCountMap) <= 0 {
+		fmt.Println("Load Balance - ", elbName, " does not have any node")
+		return
+	}
+
+	for state, count := range instancesStatesCountMap {
+		message := fmt.Sprintf("%d number of instances are in state %s", count, state)
+		fmt.Println(message)
+	}
+
+	if critical > 0 && instancesStatesCountMap["InService"] > critical {
+		message := fmt.Sprintf("CRITICAL : %d number of instances are in state %s ", instancesStatesCountMap["InService"], "InService")
+		fmt.Println(message)
+	} else if warning > 0 && instancesStatesCountMap["InService"] > warning {
+		message := fmt.Sprintf("WARNING : %d number of instances are in state %s ", instancesStatesCountMap["InService"], "InService")
+		fmt.Println(message)
+	}
+
+	if criticalPercentage > 0 || warningPercentage > 0 {
+		pecentage = float64(instancesStatesCountMap["InService"]) / float64(len(output.InstanceStates))
+		pecentage = pecentage * 100
+	}
+	if criticalPercentage > 0 && pecentage > criticalPercentage {
+		message := fmt.Sprintf("CRITICAL : %v percentage are in state %s ", pecentage, "InService")
+		fmt.Println(message)
+	} else if warningPercentage > 0 && pecentage > warningPercentage {
+		message := fmt.Sprintf("WARNING : %v percentage are in state %s ", pecentage, "InService")
+		fmt.Println(message)
+	}
+
+}
+
+func getFlags() {
+	flag.StringVar(&awsregion, "aws_region", "us-east-1", "AWS Region (defaults to us-east-1).")
+	flag.StringVar(&elbName, "load_balancer", "", "The name of the ELB")
+	flag.IntVar(&warning, "warning", -1, "Minimum number of nodes InService on the ELB to be considered a warning")
+	flag.IntVar(&critical, "critical", -1, "Minimum number of nodes InService on the ELB to be considered critical")
+	flag.Float64Var(&warningPercentage, "warning_percentage", -1, "Warn when the percentage of InService nodes is at or below this number")
+	flag.Float64Var(&criticalPercentage, "critical_percentage", -1, "CRITICAL when the percentage of InService nodes is at or below this number")
+	flag.Parse()
+}
+
+func getElbClient(awsSession *session.Session) bool {
+	if awsSession != nil {
+		elbClient = aws_clients.NewELB(awsSession)
+	} else {
+		fmt.Println("Error while getting aws session")
+		return false
+	}
+
+	if elbClient == nil {
+		fmt.Println("Error while getting elb client session")
+		return false
+	}
+
+	return true
+}

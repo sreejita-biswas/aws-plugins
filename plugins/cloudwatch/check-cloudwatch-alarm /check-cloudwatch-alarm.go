@@ -3,14 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
-	"github.com/sreejita-biswas/aws-plugins/aws_clients"
 	"github.com/sreejita-biswas/aws-plugins/aws_session"
+	"github.com/sreejita-biswas/aws-plugins/awsclient"
 )
 
 /*
@@ -50,6 +49,7 @@ var (
 func main() {
 	criticals := []string{}
 	warnings := []string{}
+	var success bool
 	flag.StringVar(&alarmName, "alarm_name", "TestAlarm", "Alarm name")
 	flag.StringVar(&criticalList, "criticals", "Alarm", "Comma seperated Critical List")
 	flag.StringVar(&warningList, "warnings", "INSUFFICIENT_DATA", "Comma seperated Warning List")
@@ -57,19 +57,10 @@ func main() {
 	flag.Parse()
 
 	awsSession := aws_session.CreateAwsSessionWithRegion(awsRegion)
-
-	if awsSession != nil {
-		cloudWatchClient = aws_clients.NewCloudWatch(awsSession)
-	} else {
-		fmt.Println("Error while getting aws session")
-		os.Exit(0)
-	}
-
-	if cloudWatchClient == nil {
-		fmt.Errorf("Failed to create cloud watch client")
+	success, cloudWatchClient = awsclient.GetCloudWatchClient(awsSession)
+	if !success {
 		return
 	}
-
 	describeInput := &cloudwatch.DescribeAlarmsInput{}
 	describeInput.AlarmNames = []*string{aws.String(alarmName)}
 

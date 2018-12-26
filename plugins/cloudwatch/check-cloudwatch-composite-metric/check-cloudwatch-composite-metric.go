@@ -3,14 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
-	"github.com/sreejita-biswas/aws-plugins/aws_clients"
 	"github.com/sreejita-biswas/aws-plugins/aws_session"
+	"github.com/sreejita-biswas/aws-plugins/awsclient"
 )
 
 /*
@@ -64,42 +63,17 @@ var (
 )
 
 func main() {
-	flag.StringVar(&excludeAlarms, "exclude_alarms", "", "Exclude alarms")
-	flag.StringVar(&state, "state", "ALARM", "State of the alarm")
-	flag.StringVar(&awsRegion, "aws_region", "us-east-2", "AWS Region (defaults to us-east-1).")
-	flag.StringVar(&namespace, "namespace", "AWS/EC2", "CloudWatch namespace for metric")
-	flag.BoolVar(&numeratorMetric, "numerator_metric", true, "Numerator metric name present")
-	flag.StringVar(&numeratorMetricName, "numerator_metric_name", "", "Numerator metric name")
-	flag.BoolVar(&denominatorMetric, "denominator_metric", true, "Denominator metric name present")
-	flag.StringVar(&denominatorMetricName, "denominator_metric_name", "", "Denominator metric name")
-	flag.StringVar(&dimensions, "dimensions", "", "Comma delimited list of DimName=Value")
-	flag.Int64Var(&period, "period", 60, "CloudWatch metric statistics period in seconds. Must be a multiple of 60")
-	flag.StringVar(&statistics, "statistics", "Average", "CloudWatch statistics method")
-	flag.StringVar(&unit, "unit", "", "CloudWatch metric unit")
-	flag.Float64Var(&critical, "critical", 0, "Trigger a critical when value is over VALUE as a Percent")
-	flag.Float64Var(&warning, "warning", 0, "Trigger a warning when value is over VALUE as a Percent")
-	flag.StringVar(&compare, "compare", "greater", "Comparision operator for threshold: equal, not, greater, less")
-	flag.Float64Var(&numeratorDefault, "numerator_default", 0, "Default for numerator if no data is returned for metric")
-	flag.BoolVar(&noDenominatorDataOk, "no_denominator_data_ok", false, "Returns ok if no data is returned from denominator metric")
-	flag.BoolVar(&zeroDenominatorDataOk, "zero_denominator_data_ok", false, "Returns ok if denominator metric is zero")
-	flag.BoolVar(&noDataOk, "no_data_ok", false, "Returns ok if no data is returned from either metric")
-	flag.Parse()
+	getFlags()
 
 	var numeratorMetricValue *float64
 	var denomatorMetricValue *float64
 	var err error
+	var success bool
 
 	awsSession := aws_session.CreateAwsSessionWithRegion(awsRegion)
 
-	if awsSession != nil {
-		cloudWatchClient = aws_clients.NewCloudWatch(awsSession)
-	} else {
-		fmt.Println("Error while getting aws session")
-		os.Exit(0)
-	}
-
-	if cloudWatchClient == nil {
-		fmt.Errorf("Failed to create cloud watch client")
+	success, cloudWatchClient = awsclient.GetCloudWatchClient(awsSession)
+	if !success {
 		return
 	}
 
@@ -252,4 +226,27 @@ func geMetrics(metricName string) (*float64, error) {
 		}
 	}
 	return averageValue, nil
+}
+
+func getFlags() {
+	flag.StringVar(&excludeAlarms, "exclude_alarms", "", "Exclude alarms")
+	flag.StringVar(&state, "state", "ALARM", "State of the alarm")
+	flag.StringVar(&awsRegion, "aws_region", "us-east-2", "AWS Region (defaults to us-east-1).")
+	flag.StringVar(&namespace, "namespace", "AWS/EC2", "CloudWatch namespace for metric")
+	flag.BoolVar(&numeratorMetric, "numerator_metric", true, "Numerator metric name present")
+	flag.StringVar(&numeratorMetricName, "numerator_metric_name", "", "Numerator metric name")
+	flag.BoolVar(&denominatorMetric, "denominator_metric", true, "Denominator metric name present")
+	flag.StringVar(&denominatorMetricName, "denominator_metric_name", "", "Denominator metric name")
+	flag.StringVar(&dimensions, "dimensions", "", "Comma delimited list of DimName=Value")
+	flag.Int64Var(&period, "period", 60, "CloudWatch metric statistics period in seconds. Must be a multiple of 60")
+	flag.StringVar(&statistics, "statistics", "Average", "CloudWatch statistics method")
+	flag.StringVar(&unit, "unit", "", "CloudWatch metric unit")
+	flag.Float64Var(&critical, "critical", 0, "Trigger a critical when value is over VALUE as a Percent")
+	flag.Float64Var(&warning, "warning", 0, "Trigger a warning when value is over VALUE as a Percent")
+	flag.StringVar(&compare, "compare", "greater", "Comparision operator for threshold: equal, not, greater, less")
+	flag.Float64Var(&numeratorDefault, "numerator_default", 0, "Default for numerator if no data is returned for metric")
+	flag.BoolVar(&noDenominatorDataOk, "no_denominator_data_ok", false, "Returns ok if no data is returned from denominator metric")
+	flag.BoolVar(&zeroDenominatorDataOk, "zero_denominator_data_ok", false, "Returns ok if denominator metric is zero")
+	flag.BoolVar(&noDataOk, "no_data_ok", false, "Returns ok if no data is returned from either metric")
+	flag.Parse()
 }

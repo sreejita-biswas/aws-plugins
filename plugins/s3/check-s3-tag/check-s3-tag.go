@@ -24,12 +24,11 @@ package main
 import (
 	"flag"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/sreejita-biswas/aws-plugins/aws_clients"
 	"github.com/sreejita-biswas/aws-plugins/aws_session"
+	"github.com/sreejita-biswas/aws-plugins/awsclient"
 )
 
 var (
@@ -39,22 +38,15 @@ var (
 )
 
 func main() {
+	var success bool
 	flag.StringVar(&awsRegion, "aws_region", "us-east-2", "AWS Region (defaults to us-east-1).")
 	flag.StringVar(&tagKeys, "tag_keys", "", "Comma seperated Tag Keys")
 	flag.Parse()
 
 	awsSession := aws_session.CreateAwsSessionWithRegion(awsRegion)
-
-	if awsSession != nil {
-		s3Client = aws_clients.NewS3(awsSession)
-	} else {
-		fmt.Println("Error while getting aws session")
-		os.Exit(0)
-	}
-
-	if s3Client == nil {
-		fmt.Println("Error while getting s3 client session")
-		os.Exit(0)
+	success, s3Client = awsclient.GetS3Client(awsSession)
+	if !success {
+		return
 	}
 
 	if len(strings.TrimSpace(tagKeys)) == 0 {

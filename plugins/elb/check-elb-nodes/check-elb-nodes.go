@@ -4,11 +4,12 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/sreejita-biswas/aws-plugins/awsclient"
+
 	"github.com/aws/aws-sdk-go/aws/awserr"
 
 	"github.com/aws/aws-sdk-go/service/elb"
 
-	"github.com/sreejita-biswas/aws-plugins/aws_clients"
 	"github.com/sreejita-biswas/aws-plugins/aws_session"
 
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -54,77 +55,26 @@ var (
 
 func main() {
 	var awsSession *session.Session
-	var pecentage float64
+	var success bool
 	getFlags()
-
 	if len(elbName) <= 0 {
 		fmt.Println("Please enter a load balance name")
 		return
 	}
-
 	if (critical == -1 || warning == -1) && (criticalPercentage == -1 || warningPercentage == -1) {
 		fmt.Println("please enter (critical and warning non zero positive value) and/or (critical percentage and warning percentage non zero positive value)")
 		return
 	}
-
 	awsSession = aws_session.CreateAwsSessionWithRegion(awsregion)
-
-	success := getElbClient(awsSession)
+	success, elbClient = awsclient.GetElbClient(awsSession)
 	if !success {
 		return
 	}
-
-	input := &elb.DescribeInstanceHealthInput{}
-	input.LoadBalancerName = &elbName
-	output, err := elbClient.DescribeInstanceHealth(input)
-	if err != nil && err.(awserr.Error).Code() == "LoadBalancerNotFound" {
-		fmt.Println(err.(awserr.Error).Message())
+	instanceStates, err := getInstanceHealth()
+	if err != nil || instanceStates == nil {
 		return
 	}
-	if err != nil {
-		fmt.Println("An issue occured while communicating with the AWS EC2 API,", err)
-		return
-	}
-
-	if !(output != nil && output.InstanceStates != nil && len(output.InstanceStates) > 0) {
-		return
-	}
-
-	instancesStatesCountMap := make(map[string]int)
-	for _, instanceState := range output.InstanceStates {
-		instancesStatesCountMap[*instanceState.State] = instancesStatesCountMap[*instanceState.State] + 1
-	}
-
-	if len(instancesStatesCountMap) <= 0 {
-		fmt.Println("Load Balance - ", elbName, " does not have any node")
-		return
-	}
-
-	for state, count := range instancesStatesCountMap {
-		message := fmt.Sprintf("%d number of instances are in state %s", count, state)
-		fmt.Println(message)
-	}
-
-	if critical > 0 && instancesStatesCountMap["InService"] < critical {
-		message := fmt.Sprintf("CRITICAL : %d number of instances are in state %s ", instancesStatesCountMap["InService"], "InService")
-		fmt.Println(message)
-	} else if warning > 0 && instancesStatesCountMap["InService"] < warning {
-		message := fmt.Sprintf("WARNING : %d number of instances are in state %s ", instancesStatesCountMap["InService"], "InService")
-		fmt.Println(message)
-	}
-
-	if criticalPercentage > 0 || warningPercentage > 0 {
-		pecentage = float64(instancesStatesCountMap["InService"]) / float64(len(output.InstanceStates))
-		pecentage = pecentage * 100
-	}
-	if criticalPercentage > 0 && pecentage < criticalPercentage {
-		message := fmt.Sprintf("CRITICAL : %v percentage are in state %s ", pecentage, "InService")
-		fmt.Println(message)
-	} else if warningPercentage > 0 && pecentage < warningPercentage {
-		message := fmt.Sprintf("WARNING : %v percentage are in state %s ", pecentage, "InService")
-		fmt.Println(message)
-	}
-
+	checkInstanceHealth(instanceStates)
 }
 
 func getFlags() {
@@ -137,18 +87,53 @@ func getFlags() {
 	flag.Parse()
 }
 
-func getElbClient(awsSession *session.Session) bool {
-	if awsSession != nil {
-		elbClient = aws_clients.NewELB(awsSession)
-	} else {
-		fmt.Println("Error while getting aws session")
-		return false
+func getInstanceHealth() ([]*elb.InstanceState, error) {
+	input := &elb.DescribeInstanceHealthInput{}
+	input.LoadBalancerName = &elbName
+	output, err := elbClient.DescribeInstanceHealth(input)
+	if err != nil && err.(awserr.Error).Code() == "LoadBalancerNotFound" {
+		fmt.Println(err.(awserr.Error).Message())
+		return nil, err
+	} else if err != nil {
+		fmt.Println("An issue occured while communicating with the AWS EC2 API,", err)
+		return nil, err
 	}
-
-	if elbClient == nil {
-		fmt.Println("Error while getting elb client session")
-		return false
+	if !(output != nil && output.InstanceStates != nil && len(output.InstanceStates) > 0) {
+		return nil, nil
 	}
+	return output.InstanceStates, nil
+}
 
-	return true
+func checkInstanceHealth(instanceStates []*elb.InstanceState) {
+	var pecentage float64
+	instancesStatesCountMap := make(map[string]int)
+	for _, instanceState := range instanceStates {
+		instancesStatesCountMap[*instanceState.State] = instancesStatesCountMap[*instanceState.State] + 1
+	}
+	if len(instancesStatesCountMap) <= 0 {
+		fmt.Println("Load Balance - ", elbName, " does not have any node")
+		return
+	}
+	for state, count := range instancesStatesCountMap {
+		message := fmt.Sprintf("%d number of instances are in state %s", count, state)
+		fmt.Println(message)
+	}
+	if critical > 0 && instancesStatesCountMap["InService"] < critical {
+		message := fmt.Sprintf("CRITICAL : %d number of instances are in state %s ", instancesStatesCountMap["InService"], "InService")
+		fmt.Println(message)
+	} else if warning > 0 && instancesStatesCountMap["InService"] < warning {
+		message := fmt.Sprintf("WARNING : %d number of instances are in state %s ", instancesStatesCountMap["InService"], "InService")
+		fmt.Println(message)
+	}
+	if criticalPercentage > 0 || warningPercentage > 0 {
+		pecentage = float64(instancesStatesCountMap["InService"]) / float64(len(instanceStates))
+		pecentage = pecentage * 100
+	}
+	if criticalPercentage > 0 && pecentage < criticalPercentage {
+		message := fmt.Sprintf("CRITICAL : %v percentage are in state %s ", pecentage, "InService")
+		fmt.Println(message)
+	} else if warningPercentage > 0 && pecentage < warningPercentage {
+		message := fmt.Sprintf("WARNING : %v percentage are in state %s ", pecentage, "InService")
+		fmt.Println(message)
+	}
 }

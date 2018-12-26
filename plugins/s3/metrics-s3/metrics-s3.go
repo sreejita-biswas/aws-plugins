@@ -25,15 +25,14 @@ package main
 import (
 	"flag"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/sreejita-biswas/aws-plugins/aws_clients"
 	"github.com/sreejita-biswas/aws-plugins/aws_session"
+	"github.com/sreejita-biswas/aws-plugins/awsclient"
 )
 
 var (
@@ -44,28 +43,19 @@ var (
 )
 
 func main() {
+	var success bool
 	flag.StringVar(&awsRegion, "aws_region", "us-east-2", "AWS Region (defaults to us-east-1).")
 	flag.StringVar(&scheme, "scheme", "sensu.aws.s3.buckets", "Metric naming scheme, text to prepend to metric")
 	flag.Parse()
 
 	awsSession := aws_session.CreateAwsSessionWithRegion(awsRegion)
-
-	if awsSession != nil {
-		s3Client = aws_clients.NewS3(awsSession)
-	} else {
-		fmt.Println("Error while getting aws session")
-		os.Exit(0)
+	success, s3Client = awsclient.GetS3Client(awsSession)
+	if !success {
+		return
 	}
-
-	if s3Client == nil {
-		fmt.Println("Error while getting s3 client session")
-		os.Exit(0)
-	}
-
-	cloudWatchClient = aws_clients.NewCloudWatch(awsSession)
-
-	if cloudWatchClient == nil {
-		fmt.Errorf("Failed to create cloud watch client")
+	success, cloudWatchClient = awsclient.GetCloudWatchClient(awsSession)
+	if !success {
+		return
 	}
 
 	input := &s3.ListBucketsInput{}

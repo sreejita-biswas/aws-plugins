@@ -31,11 +31,13 @@ package main
 import (
 	"flag"
 	"fmt"
-	"os"
+
+	"github.com/aws/aws-sdk-go/aws"
+
+	"github.com/sreejita-biswas/aws-plugins/awsclient"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elb"
-	"github.com/sreejita-biswas/aws-plugins/aws_clients"
 	"github.com/sreejita-biswas/aws-plugins/aws_session"
 )
 
@@ -47,32 +49,30 @@ var (
 )
 
 func main() {
+	var success bool
+	awsSession := aws_session.CreateAwsSessionWithRegion(awsRegion)
+	success, elbClient = awsclient.GetElbClient(awsSession)
+	if !success {
+		return
+	}
+	success, ec2Client = awsclient.GetEC2Client(awsSession)
+	if !success {
+		return
+	}
+	loadBalancers, err := getLoadBalancers()
+	if err != nil || loadBalancers == nil {
+		return
+	}
+	checkInstanceHealth(loadBalancers)
+}
+
+func getFlags() {
 	flag.StringVar(&awsRegion, "aws_region", "eu-west-1", "AWS Region (such as eu-west-1). If you do not specify a region, it will be detected by the server the script is run on")
 	flag.StringVar(&elbName, "elb_name", "", "The Elastic Load Balancer name of which you want to check the health")
 	flag.Parse()
+}
 
-	awsSession := aws_session.CreateAwsSessionWithRegion(awsRegion)
-
-	if awsSession != nil {
-		elbClient = aws_clients.NewELB(awsSession)
-	} else {
-		fmt.Errorf("Error while getting aws session")
-		os.Exit(0)
-	}
-
-	ec2Client = aws_clients.NewEC2(awsSession)
-
-	if ec2Client == nil {
-		fmt.Println("Error while getting ec2 client session")
-		os.Exit(0)
-	}
-
-	if elbClient == nil {
-		fmt.Errorf("Error while getting elb client session")
-		os.Exit(0)
-	}
-
-	//Find all load balancers/specific load balance specific to the given region
+func getLoadBalancers() ([]*elb.LoadBalancerDescription, error) {
 	input := &elb.DescribeLoadBalancersInput{}
 	if len(elbName) > 0 {
 		input.LoadBalancerNames = []*string{&elbName}
@@ -80,28 +80,24 @@ func main() {
 	output, err := elbClient.DescribeLoadBalancers(input)
 	if err != nil {
 		fmt.Println("An issue occured while communicating with the AWS EC2 API,", err)
-		return
+		return nil, err
 	}
 
 	if !(output != nil && output.LoadBalancerDescriptions != nil && len(output.LoadBalancerDescriptions) > 0) {
 		fmt.Println("No Load Balancer found in region -", awsRegion)
-		return
+		return nil, nil
 	}
+	return output.LoadBalancerDescriptions, nil
+}
 
-	for _, loadBalancer := range output.LoadBalancerDescriptions {
+func checkInstanceHealth(loadBalancers []*elb.LoadBalancerDescription) {
+	for _, loadBalancer := range loadBalancers {
 		unhealthyInstances := make(map[string]string)
-		healtStatusInput := &elb.DescribeInstanceHealthInput{}
-		healtStatusInput.LoadBalancerName = loadBalancer.LoadBalancerName
-		healtStatusOutput, err := elbClient.DescribeInstanceHealth(healtStatusInput)
-		if err != nil {
-			fmt.Println("An issue occured while communicating with the AWS EC2 API,", err)
-			return
-		}
-		if !(output != nil && healtStatusOutput.InstanceStates != nil && len(healtStatusOutput.InstanceStates) > 0) {
+		instanceStates, err := getHealthStatus(*loadBalancer.LoadBalancerName)
+		if err != nil || instanceStates == nil {
 			continue
 		}
-
-		for _, instanceState := range healtStatusOutput.InstanceStates {
+		for _, instanceState := range instanceStates {
 			if *instanceState.State != "InService" {
 				unhealthyInstances[*instanceState.InstanceId] = *instanceState.State
 			}
@@ -110,16 +106,28 @@ func main() {
 			fmt.Println("OK : All instances of Load Balancer - ", *loadBalancer.LoadBalancerName, "are in healthy state")
 			continue
 		}
-
-		if len(unhealthyInstances) == len(healtStatusOutput.InstanceStates) {
+		if len(unhealthyInstances) == len(instanceStates) {
 			fmt.Println("CRITICAL : All instances of Load Balancer - ", *loadBalancer.LoadBalancerName, "are in unhealthy state")
 			continue
 		}
-
 		fmt.Println("WARNING : Unhealthy Instances for Load Balanacer - ", *loadBalancer.LoadBalancerName, "are")
 		for id, state := range unhealthyInstances {
 			fmt.Println("Instace - ", id, ":: State - ", state)
 		}
 
 	}
+}
+
+func getHealthStatus(elbName string) ([]*elb.InstanceState, error) {
+	healtStatusInput := &elb.DescribeInstanceHealthInput{}
+	healtStatusInput.LoadBalancerName = aws.String(elbName)
+	healtStatusOutput, err := elbClient.DescribeInstanceHealth(healtStatusInput)
+	if err != nil {
+		fmt.Println("An issue occured while communicating with the AWS EC2 API,", err)
+		return nil, err
+	}
+	if !(healtStatusOutput != nil && healtStatusOutput.InstanceStates != nil && len(healtStatusOutput.InstanceStates) > 0) {
+		return nil, nil
+	}
+	return healtStatusOutput.InstanceStates, nil
 }

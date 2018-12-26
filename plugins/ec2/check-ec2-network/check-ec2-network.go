@@ -29,10 +29,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sreejita-biswas/aws-plugins/awsclient"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/sreejita-biswas/aws-plugins/aws_clients"
 	"github.com/sreejita-biswas/aws-plugins/aws_session"
 )
 
@@ -86,14 +87,8 @@ func getEc2NetworkMetric(endTimeDate time.Time) (*float64, error) {
 }
 
 func main() {
-	flag.Float64Var(&criticalThreshold, "critical", 1000000, "Trigger a critical if network traffice is over specified Bytes")
-	flag.Float64Var(&warningThreshold, "warning", 1500000, "Trigger a warning if network traffice is over specified Bytes")
-	flag.StringVar(&instanceId, "instance_id", "", "EC2 Instance ID to check.")
-	flag.StringVar(&endTime, "start_time", time.Now().Format(time.RFC3339), "CloudWatch metric statistics end time, e.g. 2014-11-12T11:45:26.371Z")
-	flag.Int64Var(&period, "period", 60, "CloudWatch metric statistics period in seconds")
-	flag.StringVar(&direction, "direction", "NetworkIn", "Select NetworkIn or NetworkOut")
-	flag.Parse()
-
+	var success bool
+	getFlags()
 	if instanceId == "" || len(strings.TrimSpace(instanceId)) == 0 {
 		fmt.Println("Please enter a valid instance id.")
 		return
@@ -112,25 +107,14 @@ func main() {
 	}
 
 	awsSession := aws_session.CreateAwsSession()
-
-	if awsSession != nil {
-		ec2Client = aws_clients.NewEC2(awsSession)
-	} else {
-		fmt.Println("Error while getting aws session")
-		os.Exit(0)
+	success, ec2Client = awsclient.GetEC2Client(awsSession)
+	if !success {
+		return
 	}
-
-	if ec2Client == nil {
-		fmt.Println("Error while getting ec2 client session")
-		os.Exit(0)
+	success, cloudWatchClient = awsclient.GetCloudWatchClient(awsSession)
+	if !success {
+		return
 	}
-
-	cloudWatchClient = aws_clients.NewCloudWatch(awsSession)
-
-	if cloudWatchClient == nil {
-		fmt.Println("Failed to create cloud watch client")
-	}
-
 	networkValue, err := getEc2NetworkMetric(endTimeDate)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -146,4 +130,14 @@ func main() {
 		}
 	}
 
+}
+
+func getFlags() {
+	flag.Float64Var(&criticalThreshold, "critical", 1000000, "Trigger a critical if network traffice is over specified Bytes")
+	flag.Float64Var(&warningThreshold, "warning", 1500000, "Trigger a warning if network traffice is over specified Bytes")
+	flag.StringVar(&instanceId, "instance_id", "", "EC2 Instance ID to check.")
+	flag.StringVar(&endTime, "start_time", time.Now().Format(time.RFC3339), "CloudWatch metric statistics end time, e.g. 2014-11-12T11:45:26.371Z")
+	flag.Int64Var(&period, "period", 60, "CloudWatch metric statistics period in seconds")
+	flag.StringVar(&direction, "direction", "NetworkIn", "Select NetworkIn or NetworkOut")
+	flag.Parse()
 }

@@ -55,15 +55,15 @@ import (
 	"flag"
 	"fmt"
 	"math"
-	"os"
 	"strings"
 	"time"
+
+	"github.com/sreejita-biswas/aws-plugins/awsclient"
 
 	"github.com/aws/aws-sdk-go/aws"
 
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/rds"
-	"github.com/sreejita-biswas/aws-plugins/aws_clients"
 	"github.com/sreejita-biswas/aws-plugins/aws_session"
 )
 
@@ -92,118 +92,41 @@ var (
 	iopsWarning              float64
 	metricSeverities         map[string]map[string]float64
 	availabilityZone         string
+	instanceClassMapping     map[string]string
+	allocatedStorageMapping  map[string]int64
+	dbInstanceZoneMapping    map[string]string
 )
 
 func main() {
+	var success bool
 	metrics := getMetrics()
 	metricSeverities = getMetricSeverities()
 	values := make(map[string]*float64)
 	severities := make(map[string]bool)
 	severities["critical"] = false
 	severities["warning"] = false
-	instanceClassMapping := make(map[string]string)
-	allocatedStorageMapping := make(map[string]int64)
-
+	instanceClassMapping = make(map[string]string)
+	allocatedStorageMapping = make(map[string]int64)
+	dbInstanceZoneMapping = make(map[string]string)
 	getFlags()
-
 	if len(dbClusterId) <= 0 && len(dbInstanceId) <= 0 {
 		fmt.Println("Please provide db_cluster_id or db_instance_id")
 		return
 	}
-
 	awsSession := aws_session.CreateAwsSessionWithRegion(awsRegion)
-
-	if awsSession != nil {
-		rdsClient = aws_clients.NewRDS(awsSession)
-	} else {
-		fmt.Println("Error while getting aws session")
-		os.Exit(0)
-	}
-
-	if rdsClient == nil {
-		fmt.Println("Error while getting rds client session")
-		os.Exit(0)
-	}
-
-	cloudWatchClient = aws_clients.NewCloudWatch(awsSession)
-
-	if cloudWatchClient == nil {
-		fmt.Println("Failed to create cloud watch client")
+	success, rdsClient = awsclient.GetRDSClient(awsSession)
+	if !success {
 		return
 	}
-
-	dbInstanceZoneMapping := make(map[string]string)
-
-	if len(dbClusterId) > 0 {
-		dbclustersInput := &rds.DescribeDBClustersInput{}
-
-		filter := &rds.Filter{}
-		filter.Name = aws.String("db-cluster-id")
-		filter.Values = []*string{&dbClusterId}
-		dbclustersInput.Filters = []*rds.Filter{filter}
-
-		dbClusterOutput, err := rdsClient.DescribeDBClusters(dbclustersInput)
-
-		if err != nil {
-			fmt.Println("An error occurred processing AWS RDS API DescribeDBClusters", err)
-			return
-		}
-
-		if dbClusterOutput == nil || dbClusterOutput.DBClusters == nil || len(dbClusterOutput.DBClusters) <= 0 {
-			fmt.Println("UNKNOWN : DB Cluster not found!")
-		}
-
-		if dbClusterOutput != nil && dbClusterOutput.DBClusters != nil && len(dbClusterOutput.DBClusters) > 0 {
-			for _, dbclustersMember := range dbClusterOutput.DBClusters[0].DBClusterMembers {
-				if *dbclustersMember.IsClusterWriter {
-					dbInstanceInput := &rds.DescribeDBInstancesInput{}
-					filter := &rds.Filter{}
-					filter.Name = aws.String("db-instance-id")
-					filter.Values = []*string{aws.String(*dbclustersMember.DBInstanceIdentifier)}
-					dbInstanceInput.Filters = []*rds.Filter{filter}
-
-					dbClusterOutput, err := rdsClient.DescribeDBInstances(dbInstanceInput)
-
-					if err != nil {
-						fmt.Println("An error occurred processing AWS RDS API DescribeDBInstances", err)
-						return
-					}
-
-					if dbClusterOutput == nil || dbClusterOutput.DBInstances == nil || len(dbClusterOutput.DBInstances) <= 0 {
-						fmt.Println("UNKNOWN :", dbInstanceId, "instance not found")
-					} else {
-						dbInstanceZoneMapping[*dbclustersMember.DBInstanceIdentifier] = *dbClusterOutput.DBInstances[0].AvailabilityZone
-						instanceClassMapping[*dbclustersMember.DBInstanceIdentifier] = *dbClusterOutput.DBInstances[0].DBInstanceClass
-						allocatedStorageMapping[*dbclustersMember.DBInstanceIdentifier] = *dbClusterOutput.DBInstances[0].AllocatedStorage
-					}
-				}
-			}
-		}
+	success, cloudWatchClient = awsclient.GetCloudWatchClient(awsSession)
+	err := getClusterDetails()
+	if err != nil {
+		return
 	}
-
-	if len(dbInstanceId) > 0 {
-		dbInstanceInput := &rds.DescribeDBInstancesInput{}
-		filter := &rds.Filter{}
-		filter.Name = aws.String("db-instance-id")
-		filter.Values = []*string{aws.String(dbInstanceId)}
-		dbInstanceInput.Filters = []*rds.Filter{filter}
-
-		dbClusterOutput, err := rdsClient.DescribeDBInstances(dbInstanceInput)
-
-		if err != nil {
-			fmt.Println("An error occurred processing AWS RDS API DescribeDBInstances", err)
-			return
-		}
-
-		if dbClusterOutput == nil || dbClusterOutput.DBInstances == nil || len(dbClusterOutput.DBInstances) <= 0 {
-			fmt.Println("UNKNOWN :", dbInstanceId, "instance not found")
-		} else {
-			dbInstanceZoneMapping[dbInstanceId] = *dbClusterOutput.DBInstances[0].AvailabilityZone
-			instanceClassMapping[dbInstanceId] = *dbClusterOutput.DBInstances[0].DBInstanceClass
-			allocatedStorageMapping[dbInstanceId] = *dbClusterOutput.DBInstances[0].AllocatedStorage
-		}
+	err = getDbInstanceDetails()
+	if err != nil {
+		return
 	}
-
 	for instance, zone := range dbInstanceZoneMapping {
 		values = make(map[string]*float64)
 		if zone != availabilityZone {
@@ -480,4 +403,80 @@ func getMemoryTotalBytes(instaceClass string) float64 {
 	memoryByteMap["db.x1e.32xlarge"] = 3904.0
 
 	return memoryByteMap[instaceClass] * math.Pow(1024, 3)
+}
+
+func getClusterDetails() error {
+	if len(dbClusterId) > 0 {
+		dbclustersInput := &rds.DescribeDBClustersInput{}
+
+		filter := &rds.Filter{}
+		filter.Name = aws.String("db-cluster-id")
+		filter.Values = []*string{&dbClusterId}
+		dbclustersInput.Filters = []*rds.Filter{filter}
+
+		dbClusterOutput, err := rdsClient.DescribeDBClusters(dbclustersInput)
+
+		if err != nil {
+			fmt.Println("An error occurred processing AWS RDS API DescribeDBClusters", err)
+			return err
+		}
+
+		if dbClusterOutput == nil || dbClusterOutput.DBClusters == nil || len(dbClusterOutput.DBClusters) <= 0 {
+			fmt.Println("UNKNOWN : DB Cluster not found!")
+		}
+
+		if dbClusterOutput != nil && dbClusterOutput.DBClusters != nil && len(dbClusterOutput.DBClusters) > 0 {
+			for _, dbclustersMember := range dbClusterOutput.DBClusters[0].DBClusterMembers {
+				if *dbclustersMember.IsClusterWriter {
+					dbInstanceInput := &rds.DescribeDBInstancesInput{}
+					filter := &rds.Filter{}
+					filter.Name = aws.String("db-instance-id")
+					filter.Values = []*string{aws.String(*dbclustersMember.DBInstanceIdentifier)}
+					dbInstanceInput.Filters = []*rds.Filter{filter}
+
+					dbClusterOutput, err := rdsClient.DescribeDBInstances(dbInstanceInput)
+
+					if err != nil {
+						fmt.Println("An error occurred processing AWS RDS API DescribeDBInstances", err)
+						return err
+					}
+
+					if dbClusterOutput == nil || dbClusterOutput.DBInstances == nil || len(dbClusterOutput.DBInstances) <= 0 {
+						fmt.Println("UNKNOWN :", dbInstanceId, "instance not found")
+					} else {
+						dbInstanceZoneMapping[*dbclustersMember.DBInstanceIdentifier] = *dbClusterOutput.DBInstances[0].AvailabilityZone
+						instanceClassMapping[*dbclustersMember.DBInstanceIdentifier] = *dbClusterOutput.DBInstances[0].DBInstanceClass
+						allocatedStorageMapping[*dbclustersMember.DBInstanceIdentifier] = *dbClusterOutput.DBInstances[0].AllocatedStorage
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func getDbInstanceDetails() error {
+	if len(dbInstanceId) > 0 {
+		dbInstanceInput := &rds.DescribeDBInstancesInput{}
+		filter := &rds.Filter{}
+		filter.Name = aws.String("db-instance-id")
+		filter.Values = []*string{aws.String(dbInstanceId)}
+		dbInstanceInput.Filters = []*rds.Filter{filter}
+
+		dbClusterOutput, err := rdsClient.DescribeDBInstances(dbInstanceInput)
+
+		if err != nil {
+			fmt.Println("An error occurred processing AWS RDS API DescribeDBInstances", err)
+			return err
+		}
+
+		if dbClusterOutput == nil || dbClusterOutput.DBInstances == nil || len(dbClusterOutput.DBInstances) <= 0 {
+			fmt.Println("UNKNOWN :", dbInstanceId, "instance not found")
+		} else {
+			dbInstanceZoneMapping[dbInstanceId] = *dbClusterOutput.DBInstances[0].AvailabilityZone
+			instanceClassMapping[dbInstanceId] = *dbClusterOutput.DBInstances[0].DBInstanceClass
+			allocatedStorageMapping[dbInstanceId] = *dbClusterOutput.DBInstances[0].AllocatedStorage
+		}
+	}
+	return nil
 }

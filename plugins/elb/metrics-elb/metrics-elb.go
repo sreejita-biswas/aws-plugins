@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/sreejita-biswas/aws-plugins/awsclient"
+
 	"github.com/aws/aws-sdk-go/aws"
 
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elb"
-	"github.com/sreejita-biswas/aws-plugins/aws_clients"
 	"github.com/sreejita-biswas/aws-plugins/aws_session"
 )
 
@@ -59,10 +60,11 @@ var (
 
 func main() {
 	var awsSession *session.Session
+	var success bool
 	var elb *string
 	getFlags()
 	awsSession = aws_session.CreateAwsSessionWithRegion(awsRegion)
-	success := getElbClient(awsSession)
+	success, elbClient = awsclient.GetElbClient(awsSession)
 	if !success {
 		return
 	}
@@ -75,7 +77,7 @@ func main() {
 	if !success {
 		return
 	}
-	success = getClodWatchClient(awsSession)
+	success, cloudWatchClient = awsclient.GetCloudWatchClient(awsSession)
 	if !success {
 		return
 	}
@@ -97,34 +99,6 @@ func getFlags() {
 	flag.Float64Var(&criticalOver, "critical_over", 60, "Trigger a critical severity if latancy is over specified seconds")
 	flag.Float64Var(&warningOver, "warning_over", 60, "Trigger a warning severity if latancy is over specified seconds")
 	flag.Parse()
-}
-
-//get  elb client
-func getElbClient(awsSession *session.Session) bool {
-	if awsSession != nil {
-		elbClient = aws_clients.NewELB(awsSession)
-	} else {
-		fmt.Println("Error while getting aws session")
-		return false
-	}
-
-	if elbClient == nil {
-		fmt.Println("Error while getting elb client session")
-		return false
-	}
-
-	return true
-}
-
-//getcloudWatch client
-func getClodWatchClient(awsSession *session.Session) bool {
-	cloudWatchClient = aws_clients.NewCloudWatch(awsSession)
-
-	if cloudWatchClient == nil {
-		fmt.Println("Failed to create cloud watch client")
-		return false
-	}
-	return true
 }
 
 func getLoadBalancers(elbName *string) (bool, []string) {

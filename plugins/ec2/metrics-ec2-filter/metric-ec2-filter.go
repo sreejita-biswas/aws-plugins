@@ -32,25 +32,23 @@ import (
 	"os"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/sreejita-biswas/aws-plugins/aws_clients"
 	"github.com/sreejita-biswas/aws-plugins/aws_session"
+	"github.com/sreejita-biswas/aws-plugins/awsclient"
 	"github.com/sreejita-biswas/aws-plugins/models"
 	"github.com/sreejita-biswas/aws-plugins/utils"
 )
 
 var (
-	ec2Client        *ec2.EC2
-	cloudWatchClient *cloudwatch.CloudWatch
-	filters          string
-	metricType       string
-	scheme           string
-	filterName       string
+	ec2Client  *ec2.EC2
+	filters    string
+	metricType string
+	scheme     string
+	filterName string
 )
 
 func main() {
-
+	var success bool
 	flag.StringVar(&metricType, "metric_type", "instance", "Count by type: status, instance")
 	flag.StringVar(&scheme, "scheme", "sensu.aws.ec2", "Metric naming scheme, text to prepend to metric")
 	flag.StringVar(&filters, "filters", "{}", "JSON String representation of Filters, e.g. {\"filters\" : [{\"name\" : \"instance-state-name\", \"values\": [\"running\"]}]}")
@@ -59,18 +57,10 @@ func main() {
 
 	awsSession := aws_session.CreateAwsSession()
 
-	if awsSession != nil {
-		ec2Client = aws_clients.NewEC2(awsSession)
-	} else {
-		fmt.Errorf("Error while getting aws session")
-		os.Exit(0)
+	success, ec2Client = awsclient.GetEC2Client(awsSession)
+	if !success {
+		return
 	}
-
-	if ec2Client == nil {
-		fmt.Errorf("Error while getting ec2 client session")
-		os.Exit(0)
-	}
-
 	var ec2Fileters models.Filters
 	err := json.Unmarshal([]byte(filters), &ec2Fileters)
 	if err != nil {

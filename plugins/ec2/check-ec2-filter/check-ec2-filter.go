@@ -36,9 +36,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/cloudwatch"
+	"github.com/sreejita-biswas/aws-plugins/awsclient"
+
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/sreejita-biswas/aws-plugins/aws_clients"
 	"github.com/sreejita-biswas/aws-plugins/aws_session"
 	"github.com/sreejita-biswas/aws-plugins/models"
 	"github.com/sreejita-biswas/aws-plugins/utils"
@@ -46,7 +46,6 @@ import (
 
 var (
 	ec2Client               *ec2.EC2
-	cloudWatchClient        *cloudwatch.CloudWatch
 	criticalThreshold       int
 	warningThreshold        int
 	excludeTags             string
@@ -57,37 +56,21 @@ var (
 )
 
 func main() {
-
-	flag.IntVar(&criticalThreshold, "critical", 1, "Critical threshold for filter")
-	flag.IntVar(&warningThreshold, "warning", 2, "Warning threshold for filter',	")
-	flag.StringVar(&excludeTags, "exclude_tags", "{}", "JSON String Representation of tag values")
-	flag.StringVar(&compareValue, "compare", "equal", "Comparision operator for threshold: equal, not, greater, less")
-	flag.BoolVar(&detailedMessageRequired, "detailed_message", false, "Detailed description is required or not")
-	flag.Float64Var(&minRunningSecs, "min_running_secs", 0, "Minimum running seconds")
-	flag.StringVar(&filters, "filters", "{\"filters\" : [{\"name\" : \"instance-state-name\", \"values\": [\"running\"]}]}", "JSON String representation of Filters")
-	flag.Parse()
-
-	awsSession := aws_session.CreateAwsSession()
-
-	if awsSession != nil {
-		ec2Client = aws_clients.NewEC2(awsSession)
-	} else {
-		fmt.Errorf("Error while getting aws session")
-		os.Exit(0)
-	}
-
-	if ec2Client == nil {
-		fmt.Errorf("Error while getting ec2 client session")
-		os.Exit(0)
-	}
-
 	var excludedTags map[string]*string
+	var ec2Fileters models.Filters
+	var awsInstances []models.AwsInstance
+	var success bool
+	getFlags()
+	awsSession := aws_session.CreateAwsSession()
+	success, ec2Client = awsclient.GetEC2Client(awsSession)
+	if !success {
+		return
+	}
 	err := json.Unmarshal([]byte(excludeTags), &excludedTags)
 	if err != nil {
 		fmt.Println("Failed to unmarshal exclude tags details , ", err)
 	}
 
-	var ec2Fileters models.Filters
 	err = json.Unmarshal([]byte(filters), &ec2Fileters)
 	if err != nil {
 		fmt.Println("Failed to unmarshal filter data , ", err)
@@ -98,8 +81,6 @@ func main() {
 		fmt.Println(err.Error())
 		os.Exit(0)
 	}
-
-	var awsInstances []models.AwsInstance
 	for _, reservation := range reservations {
 		for _, instance := range reservation.Instances {
 			tags := instance.Tags
@@ -157,4 +138,15 @@ func main() {
 			fmt.Println("Warning threshold for filter , ", buffer.String())
 		}
 	}
+}
+
+func getFlags() {
+	flag.IntVar(&criticalThreshold, "critical", 1, "Critical threshold for filter")
+	flag.IntVar(&warningThreshold, "warning", 2, "Warning threshold for filter',	")
+	flag.StringVar(&excludeTags, "exclude_tags", "{}", "JSON String Representation of tag values")
+	flag.StringVar(&compareValue, "compare", "equal", "Comparision operator for threshold: equal, not, greater, less")
+	flag.BoolVar(&detailedMessageRequired, "detailed_message", false, "Detailed description is required or not")
+	flag.Float64Var(&minRunningSecs, "min_running_secs", 0, "Minimum running seconds")
+	flag.StringVar(&filters, "filters", "{\"filters\" : [{\"name\" : \"instance-state-name\", \"values\": [\"running\"]}]}", "JSON String representation of Filters")
+	flag.Parse()
 }

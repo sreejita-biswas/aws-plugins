@@ -30,9 +30,10 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/sreejita-biswas/aws-plugins/awsclient"
+
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/sreejita-biswas/aws-plugins/aws_clients"
 	"github.com/sreejita-biswas/aws-plugins/aws_session"
 	"github.com/sreejita-biswas/aws-plugins/utils"
 )
@@ -45,6 +46,7 @@ var (
 )
 
 func main() {
+	var success bool
 	flag.StringVar(&metricType, "metric_type", "instance", "Count by type: status, instance")
 	flag.StringVar(&scheme, "scheme", "sensu.aws.ec2", "Metric naming scheme, text to prepend to metric")
 	flag.Parse()
@@ -52,25 +54,14 @@ func main() {
 	metricCount := make(map[string]int)
 
 	awsSession := aws_session.CreateAwsSession()
-
-	if awsSession != nil {
-		ec2Client = aws_clients.NewEC2(awsSession)
-	} else {
-		fmt.Println("Error while getting aws session")
-		os.Exit(0)
+	success, ec2Client = awsclient.GetEC2Client(awsSession)
+	if !success {
+		return
 	}
-
-	if ec2Client == nil {
-		fmt.Println("Error while getting ec2 client session")
-		os.Exit(0)
+	success, cloudWatchClient = awsclient.GetCloudWatchClient(awsSession)
+	if !success {
+		return
 	}
-
-	cloudWatchClient = aws_clients.NewCloudWatch(awsSession)
-
-	if cloudWatchClient == nil {
-		fmt.Println("Failed to create cloud watch client")
-	}
-
 	reservations, err := utils.GetReservations(ec2Client, nil)
 	if err != nil {
 		fmt.Println(err.Error())

@@ -25,14 +25,14 @@ package main
 import (
 	"flag"
 	"fmt"
-	"os"
 	"strings"
+
+	"github.com/sreejita-biswas/aws-plugins/awsclient"
 
 	"github.com/aws/aws-sdk-go/aws"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elb"
-	"github.com/sreejita-biswas/aws-plugins/aws_clients"
 	"github.com/sreejita-biswas/aws-plugins/aws_session"
 )
 
@@ -48,6 +48,25 @@ var (
 )
 
 func main() {
+	var success bool
+	getFlags()
+	awsSession := aws_session.CreateAwsSessionWithRegion(awsRegion)
+	success, ec2Client = awsclient.GetEC2Client(awsSession)
+	if !success {
+		return
+	}
+	success, elbClient = awsclient.GetElbClient(awsSession)
+	if !success {
+		return
+	}
+	elbs, err := getLoadBalancers()
+	if err != nil || elbs == nil {
+		return
+	}
+	checkInstanceHealth(elbs)
+}
+
+func getFlags() {
 	flag.StringVar(&awsRegion, "aws_region", "eu-west-1", "AWS Region (such as eu-west-1). If you do not specify a region, it will be detected by the server the script is run on")
 	flag.StringVar(&elbName, "elb_name", "", "The Elastic Load Balancer name of which you want to check the health")
 	flag.StringVar(&instances, "instances", "", "Comma separated list of specific instances IDs inside the ELB of which you want to check the health")
@@ -55,41 +74,20 @@ func main() {
 	flag.StringVar(&instanceTag, "instance_tag", "Name", "Specify instance tag to be included in the check output. E.g. 'Name' tag")
 	flag.BoolVar(&warnOnly, "warn_only", false, "Warn instead of critical when unhealthy instances are found")
 	flag.Parse()
+}
 
-	awsSession := aws_session.CreateAwsSessionWithRegion(awsRegion)
-
-	if awsSession != nil {
-		elbClient = aws_clients.NewELB(awsSession)
-	} else {
-		fmt.Errorf("Error while getting aws session")
-		os.Exit(0)
-	}
-
-	ec2Client = aws_clients.NewEC2(awsSession)
-
-	if ec2Client == nil {
-		fmt.Println("Error while getting ec2 client session")
-		os.Exit(0)
-	}
-
-	if elbClient == nil {
-		fmt.Errorf("Error while getting elb client session")
-		os.Exit(0)
-	}
-
-	//Find all load balancers specific to the given region
+func getLoadBalancers() ([]string, error) {
 	input := &elb.DescribeLoadBalancersInput{}
 	output, err := elbClient.DescribeLoadBalancers(input)
 	if err != nil {
 		fmt.Println("An issue occured while communicating with the AWS EC2 API,", err)
-		return
+		return nil, err
 	}
 
 	if !(output != nil && output.LoadBalancerDescriptions != nil && len(output.LoadBalancerDescriptions) > 0) {
 		fmt.Println("No Load Balancer found in region -", awsRegion)
-		return
+		return nil, nil
 	}
-
 	elbs := []string{}
 	inlcudeElb := false
 	allElbs := []string{}
@@ -101,19 +99,21 @@ func main() {
 			allElbs = append(allElbs, *loadbalancer.LoadBalancerName)
 		}
 	}
-
 	if !inlcudeElb {
 		elbs = allElbs
 	}
+	return elbs, nil
+}
 
+func checkInstanceHealth(elbs []string) {
 	critical := false
 	elbStateMapping := make(map[string]map[string]string)
 	for _, loadBalancer := range elbs {
 		unhealthyInstances := make(map[string]string)
 		instanceIdentifiers := strings.Split(instances, ",")
 		healtStatusInput := &elb.DescribeInstanceHealthInput{}
-		for _, instanceId := range instanceIdentifiers {
-			healtStatusInput.Instances = append(healtStatusInput.Instances, &elb.Instance{InstanceId: &instanceId})
+		for _, instanceID := range instanceIdentifiers {
+			healtStatusInput.Instances = append(healtStatusInput.Instances, &elb.Instance{InstanceId: &instanceID})
 		}
 		healtStatusInput.LoadBalancerName = &loadBalancer
 		healtStatusOutput, err := elbClient.DescribeInstanceHealth(healtStatusInput)
@@ -121,10 +121,9 @@ func main() {
 			fmt.Println("An issue occured while communicating with the AWS EC2 API,", err)
 			return
 		}
-		if !(output != nil && healtStatusOutput.InstanceStates != nil && len(healtStatusOutput.InstanceStates) > 0) {
+		if !(healtStatusOutput != nil && healtStatusOutput.InstanceStates != nil && len(healtStatusOutput.InstanceStates) > 0) {
 			continue
 		}
-
 		for _, instanceState := range healtStatusOutput.InstanceStates {
 			if *instanceState.State != "InService" {
 				unhealthyInstances[*instanceState.InstanceId] = *instanceState.State
@@ -156,12 +155,10 @@ func main() {
 			continue
 		}
 	}
-
 	if !critical && verbose {
 		fmt.Println("OK : All instances on all ELBs are healthy!")
 		return
 	}
-
 	if verbose {
 		if warnOnly {
 			fmt.Println("WARNING : Unhealthy instances detected: For Elbs")
@@ -170,8 +167,8 @@ func main() {
 		}
 		for loadBlancer, instanceStates := range elbStateMapping {
 			fmt.Println("ELB : ", loadBlancer)
-			for instaceId, instanceState := range instanceStates {
-				fmt.Println(instaceId, "::", instanceState)
+			for instaceID, instanceState := range instanceStates {
+				fmt.Println(instaceID, "::", instanceState)
 			}
 		}
 	} else {

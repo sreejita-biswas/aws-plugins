@@ -3,14 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
-	"github.com/sreejita-biswas/aws-plugins/aws_clients"
 	"github.com/sreejita-biswas/aws-plugins/aws_session"
+	"github.com/sreejita-biswas/aws-plugins/awsclient"
 )
 
 /*
@@ -50,22 +49,15 @@ func main() {
 	selectedAlarms := []string{}
 	excludeAlarmsMap := make(map[string]*string)
 	discardedAlarms := []string{}
+	var success bool
 	flag.StringVar(&excludeAlarms, "exclude_alarms", "", "Exclude alarms")
 	flag.StringVar(&state, "state", "ALARM", "State of the alarm")
 	flag.StringVar(&awsRegion, "aws_region", "us-east-2", "AWS Region (defaults to us-east-1).")
 	flag.Parse()
 
 	awsSession := aws_session.CreateAwsSessionWithRegion(awsRegion)
-
-	if awsSession != nil {
-		cloudWatchClient = aws_clients.NewCloudWatch(awsSession)
-	} else {
-		fmt.Println("Error while getting aws session")
-		os.Exit(0)
-	}
-
-	if cloudWatchClient == nil {
-		fmt.Errorf("Failed to create cloud watch client")
+	success, cloudWatchClient = awsclient.GetCloudWatchClient(awsSession)
+	if !success {
 		return
 	}
 

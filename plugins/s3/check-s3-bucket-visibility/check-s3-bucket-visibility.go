@@ -29,15 +29,15 @@ package main
 import (
 	"flag"
 	"fmt"
-	"os"
 	"regexp"
 	"strings"
+
+	"github.com/sreejita-biswas/aws-plugins/awsclient"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/sreejita-biswas/aws-plugins/aws_clients"
 	"github.com/sreejita-biswas/aws-plugins/aws_session"
 )
 
@@ -55,41 +55,23 @@ var (
 func main() {
 	var bucketsTobeExcluded []string
 	var excludeBucket bool
-
-	flag.StringVar(&awsRegion, "aws_region", "us-east-2", "AWS Region (defaults to us-east-1).")
-	flag.StringVar(&bucketName, "bucket_names", "", "A comma seperated list of S3 buckets to check")
-	flag.BoolVar(&allBuckets, "all_buckets", false, "If all buckets are true it will look at any buckets that we have access to in the region")
-	flag.StringVar(&excludeBuckets, "exclude_buckets", "", "A comma seperated list of buckets to ignore that are expected to have loose permissions")
-	flag.StringVar(&excludeBucketsRegx, "exclude_buckets_regx", "", "A regex to filter out bucket names")
-	flag.BoolVar(&criticalOnMissing, "critical_on_missing", false, "The check will fail with CRITICAL rather than WARN when a bucket is not found")
-	flag.Parse()
-
+	var success bool
 	awsSession := aws_session.CreateAwsSessionWithRegion(awsRegion)
-
-	if awsSession != nil {
-		s3Client = aws_clients.NewS3(awsSession)
-	} else {
-		fmt.Println("Error while getting aws session")
-		os.Exit(0)
+	success, s3Client = awsclient.GetS3Client(awsSession)
+	if !success {
+		return
 	}
-
-	if s3Client == nil {
-		fmt.Println("Error while getting s3 client session")
-		os.Exit(0)
-	}
-
 	if len(strings.TrimSpace(bucketName)) == 0 {
 		fmt.Println("Enter a bucket name")
+		return
 	}
 	if len(strings.TrimSpace(excludeBuckets)) > 0 {
 		bucketsTobeExcluded = strings.Split(excludeBuckets, ",")
 	}
-
 	excludeBucketsMap := make(map[string]*string)
 	for _, bucket := range bucketsTobeExcluded {
 		excludeBucketsMap[bucket] = &bucket
 	}
-
 	buckets := strings.Split(bucketName, ",")
 	for _, bucket := range buckets {
 		if len(strings.TrimSpace(excludeBucketsRegx)) > 0 {
@@ -135,4 +117,14 @@ func main() {
 			}
 		}
 	}
+}
+
+func getFlags() {
+	flag.StringVar(&awsRegion, "aws_region", "us-east-2", "AWS Region (defaults to us-east-1).")
+	flag.StringVar(&bucketName, "bucket_names", "", "A comma seperated list of S3 buckets to check")
+	flag.BoolVar(&allBuckets, "all_buckets", false, "If all buckets are true it will look at any buckets that we have access to in the region")
+	flag.StringVar(&excludeBuckets, "exclude_buckets", "", "A comma seperated list of buckets to ignore that are expected to have loose permissions")
+	flag.StringVar(&excludeBucketsRegx, "exclude_buckets_regx", "", "A regex to filter out bucket names")
+	flag.BoolVar(&criticalOnMissing, "critical_on_missing", false, "The check will fail with CRITICAL rather than WARN when a bucket is not found")
+	flag.Parse()
 }

@@ -28,15 +28,14 @@ package main
 import (
 	"flag"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/sreejita-biswas/aws-plugins/aws_clients"
 	"github.com/sreejita-biswas/aws-plugins/aws_session"
+	"github.com/sreejita-biswas/aws-plugins/awsclient"
 )
 
 var (
@@ -56,6 +55,7 @@ func main() {
 	flag.Parse()
 
 	var errors []string
+	var success bool
 
 	volumeInput := &ec2.DescribeVolumesInput{}
 	tagNames := []string{}
@@ -70,23 +70,13 @@ func main() {
 
 	awsSession := aws_session.CreateAwsSessionWithRegion(awsRegion)
 
-	if awsSession != nil {
-		ec2Client = aws_clients.NewEC2(awsSession)
-	} else {
-		fmt.Println("Error while getting aws session")
-		os.Exit(0)
+	success, ec2Client = awsclient.GetEC2Client(awsSession)
+	if !success {
+		return
 	}
-
-	if ec2Client == nil {
-		fmt.Println("Error while getting ec2 client session")
-		os.Exit(0)
-	}
-
-	cloudWatchClient = aws_clients.NewCloudWatch(awsSession)
-
-	if cloudWatchClient == nil {
-		fmt.Println("Error while getting cloudwatch client session")
-		os.Exit(0)
+	success, cloudWatchClient = awsclient.GetCloudWatchClient(awsSession)
+	if !success {
+		return
 	}
 
 	volumes, err := ec2Client.DescribeVolumes(volumeInput)

@@ -29,10 +29,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sreejita-biswas/aws-plugins/awsclient"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/sreejita-biswas/aws-plugins/aws_clients"
 	"github.com/sreejita-biswas/aws-plugins/aws_session"
 	"github.com/sreejita-biswas/aws-plugins/utils"
 )
@@ -82,26 +83,17 @@ func getMatchingInstanceTag(instance ec2.Instance) *string {
 }
 
 func main() {
-
+	var success bool
 	var reservations []*ec2.Reservation
 	flag.Float64Var(&criticalThreshold, "critical", 1.2, "Trigger a critical when value is below the criticalThreshold.")
 	flag.Float64Var(&warningThreshold, "warning", 2.3, "Trigger a warning when value is below warningThreshold")
 	flag.StringVar(&tagValue, "tag", "NAME", "Add instance TAG value to warn/critical message.")
 	flag.Parse()
 	awsSession := aws_session.CreateAwsSession()
-
-	if awsSession != nil {
-		ec2Client = aws_clients.NewEC2(awsSession)
-	} else {
-		fmt.Errorf("Error while getting aws session")
-		os.Exit(0)
+	success, ec2Client = awsclient.GetEC2Client(awsSession)
+	if !success {
+		return
 	}
-
-	if ec2Client == nil {
-		fmt.Errorf("Error while getting ec2 client session")
-		os.Exit(0)
-	}
-
 	filter := ec2.Filter{Name: aws.String("instance-state-name"), Values: []*string{
 		aws.String("running")}}
 
@@ -111,10 +103,9 @@ func main() {
 		os.Exit(0)
 	}
 
-	cloudWatchClient = aws_clients.NewCloudWatch(awsSession)
-
-	if cloudWatchClient == nil {
-		fmt.Errorf("Failed to create cloud watch client")
+	success, cloudWatchClient = awsclient.GetCloudWatchClient(awsSession)
+	if !success {
+		return
 	}
 
 	for _, reservation := range reservations {
@@ -123,7 +114,7 @@ func main() {
 			if strings.HasPrefix(*instanceType, "t2.") {
 				cpuBalance, err := getEc2CpuBalance(*instance)
 				if err != nil {
-					fmt.Errorf(err.Error())
+					fmt.Println(err.Error())
 					os.Exit(0)
 				}
 				tagValue := getMatchingInstanceTag(*instance)

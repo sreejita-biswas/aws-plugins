@@ -5,11 +5,11 @@ import (
 	"flag"
 	"fmt"
 	"net"
-	"os"
 	"strings"
 
+	"github.com/sreejita-biswas/aws-plugins/awsclient"
+
 	"github.com/aws/aws-sdk-go/service/elb"
-	"github.com/sreejita-biswas/aws-plugins/aws_clients"
 	"github.com/sreejita-biswas/aws-plugins/aws_session"
 )
 
@@ -47,39 +47,24 @@ var (
 )
 
 func main() {
-
-	flag.StringVar(&awsRegion, "aws_region", "us-west-1", "AWS Region (defaults to us-east-1).")
-	flag.IntVar(&warning, "warning", 30, "Warn on minimum number of days to SSL/TLS certificate expiration")
-	flag.IntVar(&critical, "critical", 5, "Minimum number of days to SSL/TLS certificate expiration")
-	flag.BoolVar(&verbose, "verbose", false, "Provide SSL/TLS certificate expiration details even when OK")
-	flag.Parse()
+	getFlags()
 
 	awsSession := aws_session.CreateAwsSession()
 
-	if awsSession != nil {
-		elbClient = aws_clients.NewELB(awsSession)
-	} else {
-		fmt.Errorf("Error while getting aws session")
-		os.Exit(0)
-	}
-
-	if elbClient == nil {
-		fmt.Errorf("Error while getting elb client session")
-		os.Exit(0)
+	success, elbClient := awsclient.GetElbClient(awsSession)
+	if !success {
+		return
 	}
 
 	describeLoadBalancerInput := &elb.DescribeLoadBalancersInput{}
 	describeLoadBalancerOutput, err := elbClient.DescribeLoadBalancers(describeLoadBalancerInput)
-
 	if err != nil {
 		fmt.Println("Error :", err)
 		return
 	}
-
 	if !(describeLoadBalancerOutput != nil && describeLoadBalancerOutput.LoadBalancerDescriptions != nil && len(describeLoadBalancerOutput.LoadBalancerDescriptions) > 0) {
 		return
 	}
-
 	for _, loadBalancer := range describeLoadBalancerOutput.LoadBalancerDescriptions {
 		for _, listener := range loadBalancer.ListenerDescriptions {
 			elbListener := listener.Listener
@@ -108,4 +93,11 @@ func main() {
 			}
 		}
 	}
+}
+func getFlags() {
+	flag.StringVar(&awsRegion, "aws_region", "us-west-1", "AWS Region (defaults to us-east-1).")
+	flag.IntVar(&warning, "warning", 30, "Warn on minimum number of days to SSL/TLS certificate expiration")
+	flag.IntVar(&critical, "critical", 5, "Minimum number of days to SSL/TLS certificate expiration")
+	flag.BoolVar(&verbose, "verbose", false, "Provide SSL/TLS certificate expiration details even when OK")
+	flag.Parse()
 }

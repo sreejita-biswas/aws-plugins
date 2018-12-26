@@ -40,13 +40,13 @@ package main
 import (
 	"flag"
 	"fmt"
-	"os"
 	"time"
+
+	"github.com/sreejita-biswas/aws-plugins/awsclient"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/rds"
-	"github.com/sreejita-biswas/aws-plugins/aws_clients"
 	"github.com/sreejita-biswas/aws-plugins/aws_session"
 )
 
@@ -58,35 +58,19 @@ var (
 )
 
 func main() {
-
-	flag.StringVar(&awsRegion, "aws_region", "us-east-1", "AWS Region (defaults to us-east-1).")
-	flag.StringVar(&dbInstanceId, "db_instance_id", "", "DB instance identifier")
-	flag.Parse()
-
+	var success bool
+	getFlags()
 	awsSession := aws_session.CreateAwsSessionWithRegion(awsRegion)
-
-	if awsSession != nil {
-		ec2Client = aws_clients.NewEC2(awsSession)
-	} else {
-		fmt.Println("Error while getting aws session")
-		os.Exit(0)
+	success, ec2Client = awsclient.GetEC2Client(awsSession)
+	if !success {
+		return
 	}
-
-	if ec2Client == nil {
-		fmt.Println("Error while getting ec2 client session")
-		os.Exit(0)
-	}
-
 	resultRegions, err := ec2Client.DescribeRegions(nil)
 	if err != nil {
 		fmt.Println("Error", err)
 		return
 	}
-
 	validRegion := false
-	clusters := []string{}
-	criticalClusters := []string{}
-
 	if resultRegions != nil && resultRegions.Regions != nil && len(resultRegions.Regions) > 0 {
 		for _, region := range resultRegions.Regions {
 			if *region.RegionName == awsRegion {
@@ -95,65 +79,29 @@ func main() {
 			}
 		}
 	}
-
 	if !validRegion {
 		fmt.Println("CRITICAL : Invalid region specified!")
 		return
 	}
-
-	rdsClient = aws_clients.NewRDS(awsSession)
-
-	if rdsClient == nil {
-		fmt.Println("Error while getting rds client session")
-		os.Exit(0)
-	}
-
-	dbInstanceInput := &rds.DescribeDBInstancesInput{}
-	filter := &rds.Filter{}
-	if len(dbInstanceId) > 0 {
-		filter.Name = aws.String("db-instance-id")
-		filter.Values = []*string{aws.String(dbInstanceId)}
-		dbInstanceInput.Filters = []*rds.Filter{filter}
-	}
-
-	dbClusterOutput, err := rdsClient.DescribeDBInstances(dbInstanceInput)
-
-	if err != nil {
-		fmt.Println("An error occurred processing AWS RDS API DescribeDBInstances", err)
-	}
-
-	if dbClusterOutput != nil && dbClusterOutput.DBInstances != nil && len(dbClusterOutput.DBInstances) > 0 {
-		clusters = append(clusters, dbInstanceId)
-	} else {
-		fmt.Println("UNKNOWN :", dbInstanceId, "instance not found")
+	success, rdsClient = awsclient.GetRDSClient(awsSession)
+	if !success {
 		return
 	}
-
-	if len(dbInstanceId) == 0 {
-		filter = &rds.Filter{}
-		dbInstanceInput.Filters = []*rds.Filter{filter}
-		//fetch all clusters identifiers
-		dbClusterOutput, err = rdsClient.DescribeDBInstances(dbInstanceInput)
-	}
-
-	if err != nil {
-		fmt.Println("An error occurred processing AWS RDS API DescribeDBInstances", err)
+	clusters, err := getClusters()
+	if err != nil || (!(clusters != nil && len(clusters) > 0)) {
 		return
 	}
+	checkEvents(clusters)
+}
 
-	if dbClusterOutput != nil && dbClusterOutput.DBInstances != nil && len(dbClusterOutput.DBInstances) > 0 {
-		for _, dbInstance := range dbClusterOutput.DBInstances {
-			clusters = append(clusters, *dbInstance.DBInstanceIdentifier)
-		}
-	}
+func getFlags() {
+	flag.StringVar(&awsRegion, "aws_region", "us-east-1", "AWS Region (defaults to us-east-1).")
+	flag.StringVar(&dbInstanceId, "db_instance_id", "", "DB instance identifier")
+	flag.Parse()
+}
 
-	// fetch the last 15 minutes of events for each cluster
-	//that way, we're only spammed with persistent notifications that we'd care about.
-
-	if !(clusters != nil && len(clusters) > 0) {
-		return
-	}
-
+func checkEvents(clusters []string) {
+	criticalClusters := []string{}
 	for _, cluster := range clusters {
 		eventInput := &rds.DescribeEventsInput{}
 		eventInput.SourceType = aws.String("DBInstance")
@@ -187,8 +135,48 @@ func main() {
 			criticalClusters = append(criticalClusters, fmt.Sprintf("%s : %s", cluster, *event.Message))
 		}
 	}
-
 	if len(criticalClusters) > 0 {
 		fmt.Println("CRITICAL : Clusters w/ critical events :", criticalClusters)
 	}
+}
+
+func getClusters() ([]string, error) {
+	clusters := []string{}
+	dbInstanceInput := &rds.DescribeDBInstancesInput{}
+	filter := &rds.Filter{}
+	if len(dbInstanceId) > 0 {
+		filter.Name = aws.String("db-instance-id")
+		filter.Values = []*string{aws.String(dbInstanceId)}
+		dbInstanceInput.Filters = []*rds.Filter{filter}
+	}
+	dbClusterOutput, err := rdsClient.DescribeDBInstances(dbInstanceInput)
+	if err != nil {
+		fmt.Println("An error occurred processing AWS RDS API DescribeDBInstances", err)
+		return nil, err
+	}
+
+	if dbClusterOutput != nil && dbClusterOutput.DBInstances != nil && len(dbClusterOutput.DBInstances) > 0 {
+		clusters = append(clusters, dbInstanceId)
+	} else {
+		fmt.Println("UNKNOWN :", dbInstanceId, "instance not found")
+		return nil, nil
+	}
+
+	if len(dbInstanceId) == 0 {
+		filter = &rds.Filter{}
+		dbInstanceInput.Filters = []*rds.Filter{filter}
+		dbClusterOutput, err = rdsClient.DescribeDBInstances(dbInstanceInput)
+	}
+
+	if err != nil {
+		fmt.Println("An error occurred processing AWS RDS API DescribeDBInstances", err)
+		return nil, err
+	}
+
+	if dbClusterOutput != nil && dbClusterOutput.DBInstances != nil && len(dbClusterOutput.DBInstances) > 0 {
+		for _, dbInstance := range dbClusterOutput.DBInstances {
+			clusters = append(clusters, *dbInstance.DBInstanceIdentifier)
+		}
+	}
+	return clusters, nil
 }

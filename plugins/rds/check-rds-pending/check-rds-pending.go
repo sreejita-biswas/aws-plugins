@@ -28,12 +28,12 @@ package main
 import (
 	"flag"
 	"fmt"
-	"os"
+
+	"github.com/sreejita-biswas/aws-plugins/awsclient"
 
 	"github.com/aws/aws-sdk-go/aws"
 
 	"github.com/aws/aws-sdk-go/service/rds"
-	"github.com/sreejita-biswas/aws-plugins/aws_clients"
 	"github.com/sreejita-biswas/aws-plugins/aws_session"
 )
 
@@ -43,32 +43,30 @@ var (
 )
 
 func main() {
-
-	clusters := []*string{}
+	var success bool
 	flag.StringVar(&awsRegion, "aws_region", "us-east-1", "AWS Region (defaults to us-east-1).")
 	flag.Parse()
-
 	awsSession := aws_session.CreateAwsSessionWithRegion(awsRegion)
-
-	if awsSession != nil {
-		rdsClient = aws_clients.NewRDS(awsSession)
-	} else {
-		fmt.Println("Error while getting aws session")
-		os.Exit(0)
+	success, rdsClient = awsclient.GetRDSClient(awsSession)
+	if !success {
+		return
 	}
-
-	if rdsClient == nil {
-		fmt.Println("Error while getting rds client session")
-		os.Exit(0)
+	clusters, err := getClusters()
+	if err != nil || clusters == nil {
+		return
 	}
+	checkPendingMaintenance(clusters)
+}
 
+func getClusters() ([]*string, error) {
+	clusters := []*string{}
 	dbInstanceInput := &rds.DescribeDBInstancesInput{}
 	//fetch all clusters identifiers
 	dbClusterOutput, err := rdsClient.DescribeDBInstances(dbInstanceInput)
 
 	if err != nil {
 		fmt.Println("An error occurred processing AWS RDS API DescribeDBInstances", err)
-		return
+		return nil, err
 	}
 
 	if dbClusterOutput != nil && dbClusterOutput.DBInstances != nil && len(dbClusterOutput.DBInstances) > 0 {
@@ -79,10 +77,13 @@ func main() {
 
 	if !(clusters != nil && len(clusters) > 0) {
 		fmt.Println("OK")
-		return
+		return nil, nil
 	}
 
-	// Check if there is any pending maintenance required
+	return clusters, nil
+}
+
+func checkPendingMaintenance(clusters []*string) {
 	pendingMaintanceInput := &rds.DescribePendingMaintenanceActionsInput{}
 	filter := &rds.Filter{}
 	filter.Name = aws.String("db-instance-id")

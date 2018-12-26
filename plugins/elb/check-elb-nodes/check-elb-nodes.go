@@ -105,10 +105,10 @@ func main() {
 		fmt.Println(message)
 	}
 
-	if critical > 0 && instancesStatesCountMap["InService"] > critical {
+	if critical > 0 && instancesStatesCountMap["InService"] < critical {
 		message := fmt.Sprintf("CRITICAL : %d number of instances are in state %s ", instancesStatesCountMap["InService"], "InService")
 		fmt.Println(message)
-	} else if warning > 0 && instancesStatesCountMap["InService"] > warning {
+	} else if warning > 0 && instancesStatesCountMap["InService"] < warning {
 		message := fmt.Sprintf("WARNING : %d number of instances are in state %s ", instancesStatesCountMap["InService"], "InService")
 		fmt.Println(message)
 	}
@@ -117,10 +117,10 @@ func main() {
 		pecentage = float64(instancesStatesCountMap["InService"]) / float64(len(output.InstanceStates))
 		pecentage = pecentage * 100
 	}
-	if criticalPercentage > 0 && pecentage > criticalPercentage {
+	if criticalPercentage > 0 && pecentage < criticalPercentage {
 		message := fmt.Sprintf("CRITICAL : %v percentage are in state %s ", pecentage, "InService")
 		fmt.Println(message)
-	} else if warningPercentage > 0 && pecentage > warningPercentage {
+	} else if warningPercentage > 0 && pecentage < warningPercentage {
 		message := fmt.Sprintf("WARNING : %v percentage are in state %s ", pecentage, "InService")
 		fmt.Println(message)
 	}

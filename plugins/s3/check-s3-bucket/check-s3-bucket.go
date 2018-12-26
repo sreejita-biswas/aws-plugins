@@ -60,16 +60,16 @@ func main() {
 	input := &s3.HeadBucketInput{Bucket: aws.String(bucketName)}
 	_, err := s3Client.HeadBucket(input)
 	if err != nil && err.(awserr.Error).Code() == "NotFound" {
-		fmt.Println("CRITICAL : ", bucketName, "bucket not found")
+		fmt.Println("CRITICAL:", bucketName, "bucket not found")
 	} else if err != nil {
-		fmt.Println("CRITICAL : ", bucketName, "-", err.(awserr.Error).Message())
+		fmt.Println("CRITICAL:", bucketName, "-", err.(awserr.Error).Message())
 	} else {
-		fmt.Println("OK : ", bucketName, "bucket found")
+		fmt.Println("OK:", bucketName, "bucket found")
 	}
 }
 
 func getFlags() {
-	flag.StringVar(&awsRegion, "aws_region", "us-east-2", "AWS Region (defaults to us-east-1).")
+	flag.StringVar(&awsRegion, "aws_region", "us-east-1", "AWS Region (defaults to us-east-1).")
 	flag.StringVar(&bucketName, "bucket_name", "", "A comma seperated list of S3 buckets to check")
 	flag.Parse()
 }

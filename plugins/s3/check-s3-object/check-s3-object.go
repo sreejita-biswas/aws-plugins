@@ -60,24 +60,12 @@ var (
 )
 
 func main() {
-	flag.StringVar(&awsRegion, "aws_region", "us-east-2", "AWS Region (defaults to us-east-1).")
-	flag.BoolVar(&useIamRole, "use_iam_role", false, "Use IAM role authenticiation. Instance must have IAM role assigned for this to work")
-	flag.StringVar(&bucketName, "bucket_name", "", "The name of the S3 bucket where object lives")
-	flag.StringVar(&keyName, "key_name", "", "The name of key in the bucket")
-	flag.StringVar(&keyPrefix, "key_prefix", "", "Prefix key to search on the bucket")
-	flag.Float64Var(&warningAge, "warning_age", 90000, "Warn if mtime greater than provided age in seconds")
-	flag.Float64Var(&criticalAge, "critical_age", 126000, "Critical if mtime greater than provided age in seconds")
-	flag.BoolVar(&okZeroSize, "ok_zero_size", true, "OK if file has zero size'")
-	flag.Int64Var(&warningSize, "warning_size", 0, "Warning threshold for size")
-	flag.Int64Var(&criticalSize, "critical_size", 0, "Critical threshold for size")
-	flag.StringVar(&compareSize, "operator-size", "equal", "Comparision operator for threshold: equal, not, greater, less")
-	flag.BoolVar(&noCritOnMultipleObjects, "no_crit_on_multiple_objects", true, "If this flag is set, sort all matching objects by last_modified date and check against the newest. By default, this check will return a CRITICAL result if multiple matching objects are found.")
-	flag.Parse()
-
 	var age time.Duration
 	var size int64
 	var keyFullName string
 	var success bool
+
+	getFlags()
 	awsSession := aws_session.CreateAwsSessionWithRegion(awsRegion)
 	success, s3Client = awsclient.GetS3Client(awsSession)
 	if !success {
@@ -98,7 +86,7 @@ func main() {
 		input := &s3.HeadObjectInput{Bucket: aws.String(bucketName), Key: aws.String(keyName)}
 		output, err := s3Client.HeadObject(input)
 		if err != nil {
-			printErroMessage(err, keyFullName)
+			printErroMessage(err, keyName)
 			return
 		}
 		if output != nil {
@@ -115,17 +103,16 @@ func main() {
 			return
 		}
 		if output == nil || output.Contents == nil || len(output.Contents) < 1 {
-			fmt.Println("CRITICAL : Object with prefix ", keyPrefix, "not found in bucket ", bucketName)
+			fmt.Println(fmt.Sprintf("CRITICAL : Object with prefix \"%s\" not found in bucket '%s'", keyPrefix, bucketName))
 			return
 		}
 
 		if output != nil || output.Contents != nil || len(output.Contents) > 1 {
 			if !noCritOnMultipleObjects {
-				fmt.Println("CRITICAL : Your prefix \"", keyPrefix, "\" return too much files, you need to be more specific")
+				fmt.Println(fmt.Sprintf("CRITICAL : Your prefix \"%s\" return too much files, you need to be more specific", keyPrefix))
 				return
-			} else {
-				utils.SortContents(output.Contents)
 			}
+			utils.SortContents(output.Contents)
 		}
 
 		keyFullName = *output.Contents[0].Key
@@ -137,61 +124,59 @@ func main() {
 
 func checkAge(age time.Duration, keyName string) {
 	if age.Seconds() > criticalAge {
-		fmt.Println("CRITICAL : S3 Object", keyName, "is", age.Seconds(), "seconds old (Bucket -", bucketName, ")")
+		fmt.Println(fmt.Sprintf("CRITICAL : S3 Object '%s' size : '%d' octets (Bucket - '%s')", keyName, age, bucketName))
 		return
 	}
 	if age.Seconds() > warningAge {
-		fmt.Println("WARNING : S3 Object", keyName, "is", age.Seconds(), " seconds old (Bucket -", bucketName, ")")
+		fmt.Println(fmt.Sprintf("WARNING : S3 Object '%s' size : '%d' octets (Bucket - '%s')", keyName, age, bucketName))
 		return
 	}
-	fmt.Println("OK : S3 Object", keyName, "exists in bucket", bucketName)
-
+	fmt.Println(fmt.Sprintf("OK : S3 Object '%s' exists in bucket '%s'", keyName, bucketName))
 }
 
 func checkSize(size int64, keyName string) {
 	if compareSize == "not" {
 		if size != criticalSize {
-			fmt.Println("CRITICAL : S3 Object", keyName, "size :", size, "octets (Bucket - ", bucketName, ")")
+			fmt.Println(fmt.Sprintf("CRITICAL : S3 Object '%s' size : '%d' octets (Bucket - '%s')", keyName, size, bucketName))
 			return
 		}
 		if size != warningSize {
-			fmt.Println("WARNING : S3 Object", keyName, "size :", size, "octets (Bucket - ", bucketName, ")")
+			fmt.Println(fmt.Sprintf("WARNING : S3 Object '%s' size : '%d' octets (Bucket - '%s')", keyName, size, bucketName))
 			return
 		}
 	}
 
 	if compareSize == "greater" {
 		if size > criticalSize {
-			fmt.Println("CRITICAL : S3 Object", keyName, "size :", size, "octets (Bucket - ", bucketName, ")")
+			fmt.Println(fmt.Sprintf("CRITICAL : S3 Object '%s' size : '%d' octets (Bucket - '%s')", keyName, size, bucketName))
 			return
 		}
 		if size > warningSize {
-			fmt.Println("WARNING : S3 Object", keyName, "size :", size, "octets (Bucket - ", bucketName, ")")
+			fmt.Println(fmt.Sprintf("WARNING : S3 Object '%s' size : '%d' octets (Bucket - '%s')", keyName, size, bucketName))
 			return
 		}
 
-		fmt.Println("OK : S3 Object", keyName, "exists in bucket", bucketName)
+		fmt.Println(fmt.Sprintf("OK : S3 Object '%s' exists in bucket '%s'", keyName, bucketName))
 	}
 
 	if compareSize == "less" {
 		if size < criticalSize {
-			fmt.Println("CRITICAL : S3 Object", keyName, "size :", size, "octets (Bucket -", bucketName, ")")
+			fmt.Println(fmt.Sprintf("CRITICAL : S3 Object '%s' size : '%d' octets (Bucket - '%s')", keyName, size, bucketName))
 			return
 		}
 		if size < warningSize {
-			fmt.Println("WARNING : S3 Object", keyName, "size :", size, "octets (Bucket -", bucketName, ")")
+			fmt.Println(fmt.Sprintf("WARNING : S3 Object '%s' size : '%d' octets (Bucket - '%s')", keyName, size, bucketName))
 			return
 		}
-		fmt.Println("OK : S3 Object", keyName, "exists in bucket", bucketName)
+		fmt.Println(fmt.Sprintf("OK : S3 Object '%s' exists in bucket '%s'", keyName, bucketName))
 	}
-
 }
 
 func printErroMessage(err error, keyFullName string) {
 	if err.(awserr.Error).Code() == "NotFound" {
-		fmt.Println("CRITICAL : S3 Object", keyFullName, "not found in bucket -", bucketName)
+		fmt.Println(fmt.Sprintf("CRITICAL : S3 Object '%s' not found in bucket - '%s'", keyFullName, bucketName))
 	} else {
-		fmt.Println("CRITICAL : S3 Object", keyFullName, "in bucket -", bucketName, ",", err.(awserr.Error).Code(), "-", err.(awserr.Error).Message())
+		fmt.Println(err.(awserr.Error).Message())
 	}
 }
 
@@ -200,6 +185,22 @@ func printMesaage(age time.Duration, keyFullName string, size int64) {
 	if size != 0 {
 		checkSize(size, keyFullName)
 	} else if !okZeroSize {
-		fmt.Println("CRITICAL : S3 Object", keyFullName, "is empty (Bucket -", bucketName, ")")
+		fmt.Println(fmt.Sprintf("CRITICAL : S3 Object '%s' is empty (Bucket - '%s')", keyFullName, bucketName))
 	}
+}
+
+func getFlags() {
+	flag.StringVar(&awsRegion, "aws_region", "us-east-1", "AWS Region (defaults to us-east-1).")
+	flag.BoolVar(&useIamRole, "use_iam_role", false, "Use IAM role authenticiation. Instance must have IAM role assigned for this to work")
+	flag.StringVar(&bucketName, "bucket_name", "", "The name of the S3 bucket where object lives")
+	flag.StringVar(&keyName, "key_name", "", "The name of key in the bucket")
+	flag.StringVar(&keyPrefix, "key_prefix", "", "Prefix key to search on the bucket")
+	flag.Float64Var(&warningAge, "warning_age", 90000, "Warn if mtime greater than provided age in seconds")
+	flag.Float64Var(&criticalAge, "critical_age", 126000, "Critical if mtime greater than provided age in seconds")
+	flag.BoolVar(&okZeroSize, "ok_zero_size", true, "OK if file has zero size'")
+	flag.Int64Var(&warningSize, "warning_size", 0, "Warning threshold for size")
+	flag.Int64Var(&criticalSize, "critical_size", 0, "Critical threshold for size")
+	flag.StringVar(&compareSize, "operator-size", "equal", "Comparision operator for threshold: equal, not, greater, less")
+	flag.BoolVar(&noCritOnMultipleObjects, "no_crit_on_multiple_objects", true, "If this flag is set, sort all matching objects by last_modified date and check against the newest. By default, this check will return a CRITICAL result if multiple matching objects are found.")
+	flag.Parse()
 }

@@ -45,7 +45,7 @@ var (
 	s3Client           *s3.S3
 	filters            string
 	awsRegion          string
-	bucketName         string
+	bucketNames        string
 	allBuckets         bool
 	excludeBuckets     string
 	excludeBucketsRegx string
@@ -56,12 +56,13 @@ func main() {
 	var bucketsTobeExcluded []string
 	var excludeBucket bool
 	var success bool
+	getFlags()
 	awsSession := aws_session.CreateAwsSessionWithRegion(awsRegion)
 	success, s3Client = awsclient.GetS3Client(awsSession)
 	if !success {
 		return
 	}
-	if len(strings.TrimSpace(bucketName)) == 0 {
+	if len(strings.TrimSpace(bucketNames)) == 0 {
 		fmt.Println("Enter a bucket name")
 		return
 	}
@@ -72,15 +73,16 @@ func main() {
 	for _, bucket := range bucketsTobeExcluded {
 		excludeBucketsMap[bucket] = &bucket
 	}
-	buckets := strings.Split(bucketName, ",")
+	buckets := strings.Split(bucketNames, ",")
 	for _, bucket := range buckets {
+		excludeBucket = false
 		if len(strings.TrimSpace(excludeBucketsRegx)) > 0 {
-			excludeBucket, _ = regexp.MatchString(excludeBucketsRegx, bucketName)
-			if excludeBucket || excludeBucketsMap[bucketName] != nil {
-				excludeBucket = true
-			} else {
-				excludeBucket = false
-			}
+			excludeBucket, _ = regexp.MatchString(excludeBucketsRegx, bucket)
+		}
+		if excludeBucket || excludeBucketsMap[bucket] != nil {
+			excludeBucket = true
+		} else {
+			excludeBucket = false
 		}
 		if !excludeBucket {
 			input := &s3.GetBucketWebsiteInput{Bucket: aws.String(bucket)}
@@ -88,40 +90,42 @@ func main() {
 			if err != nil {
 				if err.(awserr.Error).Code() == "NoSuchBucket" {
 					if criticalOnMissing {
-						fmt.Println("CRITICAL  : ", bucket, "bucket does not exist")
+						fmt.Println(fmt.Sprintf("CRITICAL:'%s' bucket does not exist", bucket))
+
 					} else {
-						fmt.Println("WARNING  : ", bucket, "bucket does not exist")
+						fmt.Println(fmt.Sprintf("WARNING:'%s' bucket does not exist", bucket))
 					}
+					continue
 				}
 				if err.(awserr.Error).Code() == "NoSuchWebsiteConfiguration" {
-					fmt.Println("OK  : ", bucket, "bucket does not have a website configuration")
+					fmt.Println(fmt.Sprintf("OK:'%s' bucket does not have a website configuration", bucket))
 				}
 			} else {
-				fmt.Println("CRITICAL  : ", bucket, " bucket website configuration found")
+				fmt.Println(fmt.Sprintf("CRITICAL:'%s' bucket website configuration found", bucket))
 			}
 			policyInput := &s3.GetBucketPolicyInput{Bucket: aws.String(bucket)}
 			policyResponse, err := s3Client.GetBucketPolicy(policyInput)
 			if err != nil {
 				if err.(awserr.Error).Code() == "NoSuchBucket" {
 					if criticalOnMissing {
-						fmt.Println("CRITICAL  : ", bucket, "bucket does not exist")
+						fmt.Println(fmt.Sprintf("CRITICAL:'%s' bucket does not exist", bucket))
 					} else {
-						fmt.Println("WARNING  : ", bucket, "bucket does not exist")
+						fmt.Println(fmt.Sprintf("WARNING:'%s' bucket does not exist", bucket))
 					}
 				}
 				if err.(awserr.Error).Code() == "NoSuchBucketPolicy" {
-					fmt.Println("OK  : ", bucket, "bucket policy does not exist")
+					fmt.Println(fmt.Sprintf("OK:'%s' bucket policy does not exist", bucket))
 				}
 			} else if policyResponse != nil {
-				fmt.Println("CRITICAL", bucket, " bucket policy too permissive", err)
+				fmt.Println(fmt.Sprintf("CRITICAL:'%s' bucket policy too permissive", bucket))
 			}
 		}
 	}
 }
 
 func getFlags() {
-	flag.StringVar(&awsRegion, "aws_region", "us-east-2", "AWS Region (defaults to us-east-1).")
-	flag.StringVar(&bucketName, "bucket_names", "", "A comma seperated list of S3 buckets to check")
+	flag.StringVar(&awsRegion, "aws_region", "us-east-1", "AWS Region (defaults to us-east-1).")
+	flag.StringVar(&bucketNames, "bucket_names", "", "A comma seperated list of S3 buckets to check")
 	flag.BoolVar(&allBuckets, "all_buckets", false, "If all buckets are true it will look at any buckets that we have access to in the region")
 	flag.StringVar(&excludeBuckets, "exclude_buckets", "", "A comma seperated list of buckets to ignore that are expected to have loose permissions")
 	flag.StringVar(&excludeBucketsRegx, "exclude_buckets_regx", "", "A regex to filter out bucket names")

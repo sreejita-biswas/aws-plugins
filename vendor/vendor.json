@@ -303,6 +303,12 @@
 			"revisionTime": "2018-12-21T22:39:25Z"
 		},
 		{
+			"checksumSHA1": "VlI/BwvuHSlEMx+gjG66NzMOpeg=",
+			"path": "github.com/aws/aws-sdk-go/service/elbv2",
+			"revision": "8234000fff968de811646c75b200b0c713f800ec",
+			"revisionTime": "2018-12-21T22:39:25Z"
+		},
+		{
 			"checksumSHA1": "3HrhQ0eiPWtsnq09SsSyh1gDpGk=",
 			"path": "github.com/aws/aws-sdk-go/service/iam",
 			"revision": "50e2f0627dec4e2508ea825884a551ecd393425c",

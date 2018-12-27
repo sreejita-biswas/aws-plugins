@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elb"
+	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/rds"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -42,6 +43,11 @@ func newELB(awsSession *session.Session) *elb.ELB {
 	return elbClient
 }
 
+func newELBV2(awsSession *session.Session) *elbv2.ELBV2 {
+	elbv2Client := elbv2.New(awsSession)
+	return elbv2Client
+}
+
 func GetElbClient(awsSession *session.Session) (bool, *elb.ELB) {
 	var elbClient *elb.ELB
 	if awsSession != nil {
@@ -53,6 +59,23 @@ func GetElbClient(awsSession *session.Session) (bool, *elb.ELB) {
 
 	if elbClient == nil {
 		fmt.Println("Error while getting elb client session")
+		return false, nil
+	}
+
+	return true, elbClient
+}
+
+func GetElbV2Client(awsSession *session.Session) (bool, *elbv2.ELBV2) {
+	var elbClient *elbv2.ELBV2
+	if awsSession != nil {
+		elbClient = newELBV2(awsSession)
+	} else {
+		fmt.Println("Error while getting aws session")
+		return false, nil
+	}
+
+	if elbClient == nil {
+		fmt.Println("Error while getting elbv2 client session")
 		return false, nil
 	}
 

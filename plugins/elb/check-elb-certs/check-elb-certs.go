@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
 	"github.com/sreejita-biswas/aws-plugins/awsclient"
 
@@ -78,7 +79,7 @@ func main() {
 					return
 				}
 				dialer := net.Dialer{}
-				connection, err := tls.DialWithDialer(&dialer, "tcp", fmt.Sprintf("[%s]:%s", ips[0], port), &tls.Config{ServerName: dnsName})
+				connection, err := tls.DialWithDialer(&dialer, "tcp", fmt.Sprintf("[%s]:%d", ips[0], port), &tls.Config{ServerName: dnsName})
 				if err != nil {
 					fmt.Println("Error :", err)
 					return
@@ -88,12 +89,22 @@ func main() {
 						if cert.IsCA {
 							continue
 						}
+						expiryDate := cert.NotAfter
+						if critical > 0 && float64(critical) > (time.Since(expiryDate).Minutes()/float64(60))/float64(24.0) {
+							fmt.Println(fmt.Sprintf("CRITICAL:Load Balancer Name:'%s' , Expiry Date:%s", *loadBalancer.LoadBalancerName, expiryDate.Format(time.RFC3339)))
+							break
+						}
+						if warning > 0 && float64(warning) > (time.Since(expiryDate).Minutes()/float64(60))/float64(24.0) {
+							fmt.Println(fmt.Sprintf("WARNING:Load Balancer Name:'%s' , Expiry Date:%s", *loadBalancer.LoadBalancerName, expiryDate.Format(time.RFC3339)))
+							break
+						}
 					}
 				}
 			}
 		}
 	}
 }
+
 func getFlags() {
 	flag.StringVar(&awsRegion, "aws_region", "us-west-1", "AWS Region (defaults to us-east-1).")
 	flag.IntVar(&warning, "warning", 30, "Warn on minimum number of days to SSL/TLS certificate expiration")

@@ -44,7 +44,7 @@ var (
 
 func main() {
 	var success bool
-	flag.StringVar(&awsRegion, "aws_region", "us-east-2", "AWS Region (defaults to us-east-1).")
+	flag.StringVar(&awsRegion, "aws_region", "us-east-1", "AWS Region (defaults to us-east-1).")
 	flag.StringVar(&scheme, "scheme", "sensu.aws.s3.buckets", "Metric naming scheme, text to prepend to metric")
 	flag.Parse()
 
@@ -92,7 +92,7 @@ func getMetricStatistics(bucketName string) {
 	input.StartTime = aws.Time(time.Now().Add(time.Duration(-24*60) * time.Minute))
 	input.Period = aws.Int64(period)
 	input.Statistics = []*string{aws.String(stats)}
-	input.Unit = aws.String("Count")
+	input.Unit = aws.String("Bytes")
 	metrics, err := cloudWatchClient.GetMetricStatistics(&input)
 	if err != nil {
 		fmt.Println("CRITICAL :", scheme, ".", bucketName, ".", "Error : ", err)
@@ -112,6 +112,8 @@ func getMetricStatistics(bucketName string) {
 				averageValue = datapoint.Average
 			}
 		}
-		fmt.Println(scheme, ".", bucketName, ".", "Number of objects :", averageValue)
+		if averageValue != nil {
+			fmt.Println(fmt.Sprintf("%s.%s.number_of_objects:%v", scheme, bucketName, *averageValue))
+		}
 	}
 }

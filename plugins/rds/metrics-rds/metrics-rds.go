@@ -132,7 +132,7 @@ func getCloudWatchMetrics(metricname string, statistic string, rdsName string) (
 }
 
 func getFlags() {
-	flag.StringVar(&awsRegion, "aws_region", "us-west-1", "AWS Region (defaults to us-east-1).")
+	flag.StringVar(&awsRegion, "aws_region", "us-east-1", "AWS Region (defaults to us-east-1).")
 	flag.StringVar(&scheme, "scheme", "", "Metric naming scheme, text to prepend to metric")
 	flag.StringVar(&dbInstanceId, "db_instance_id", "", "DB instance identifier")
 	flag.IntVar(&fetchAge, "fetch_age", 0, "How long ago to fetch metrics from in seconds")

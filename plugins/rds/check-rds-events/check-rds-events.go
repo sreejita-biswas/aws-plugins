@@ -40,6 +40,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/sreejita-biswas/aws-plugins/awsclient"
@@ -104,13 +105,13 @@ func checkEvents(clusters []string) {
 	criticalClusters := []string{}
 	for _, cluster := range clusters {
 		eventInput := &rds.DescribeEventsInput{}
-		eventInput.SourceType = aws.String("DBInstance")
+		eventInput.SourceType = aws.String("db-instance")
 		eventInput.SourceIdentifier = &cluster
-		eventInput.StartTime = aws.Time(time.Now().Add(time.Duration(-15) * time.Minute))
+		eventInput.StartTime = aws.Time(time.Now().Add(time.Duration(-24*60) * time.Minute))
 		eventOutput, err := rdsClient.DescribeEvents(eventInput)
 
 		if err != nil {
-			fmt.Println("Error occurred while getting rds event details for db instance -", cluster)
+			fmt.Println("Error occurred while getting rds event details for db instance -", cluster, ",Error -", err)
 			return
 		}
 
@@ -121,18 +122,34 @@ func checkEvents(clusters []string) {
 		for _, event := range eventOutput.Events {
 			// we will need to filter out non-disruptive/basic operation events.
 			//ie. the regular backup operations
-			if *event.Message == "//Backing up DB instance|Finished DB Instance backup|Restored from snapshot//" {
+			match, _ := regexp.MatchString("Backing up DB instance", *event.Message)
+			if match {
+				continue
+			}
+			match, _ = regexp.MatchString("Finished DB Instance backup", *event.Message)
+			if match {
+				continue
+			}
+
+			match, _ = regexp.MatchString("Restored from snapshot", *event.Message)
+			if match {
+				continue
+			}
+
+			match, _ = regexp.MatchString("DB instance created", *event.Message)
+			if match {
 				continue
 			}
 			// ie. Replication resumed
-			if *event.Message == "//Replication for the Read Replica resumed//" {
+			match, _ = regexp.MatchString("Replication for the Read Replica resumed", *event.Message)
+			if match {
 				continue
 			}
 
 			// you can add more filters to skip more events.
 
 			// draft the messages
-			criticalClusters = append(criticalClusters, fmt.Sprintf("%s : %s", cluster, *event.Message))
+			criticalClusters = append(criticalClusters, fmt.Sprintf("%s : %s \n", cluster, *event.Message))
 		}
 	}
 	if len(criticalClusters) > 0 {

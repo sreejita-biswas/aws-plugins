@@ -2,7 +2,10 @@ package awsclient
 
 import (
 	"fmt"
+	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -11,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/rds"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/sts"
 )
 
 func newIAM(awsSession *session.Session) *iam.IAM {
@@ -46,6 +50,11 @@ func newELB(awsSession *session.Session) *elb.ELB {
 func newELBV2(awsSession *session.Session) *elbv2.ELBV2 {
 	elbv2Client := elbv2.New(awsSession)
 	return elbv2Client
+}
+
+func newSTS(awsSession *session.Session) *sts.STS {
+	stsClient := sts.New(awsSession)
+	return stsClient
 }
 
 func GetElbClient(awsSession *session.Session) (bool, *elb.ELB) {
@@ -148,4 +157,92 @@ func GetS3Client(awsSession *session.Session) (bool, *s3.S3) {
 	}
 
 	return true, s3Client
+}
+
+func getSTSClient(awsSession *session.Session) (bool, *sts.STS) {
+	var stsClient *sts.STS
+	if awsSession != nil {
+		stsClient = newSTS(awsSession)
+	} else {
+		fmt.Println("Error while getting aws session")
+		return false, nil
+	}
+
+	if stsClient == nil {
+		fmt.Println("Error while getting sts client session")
+		return false, nil
+	}
+
+	return true, stsClient
+}
+
+func GetRDSClientWithRoleArn(awsSession *session.Session, roleArn string) (bool, *rds.RDS) {
+	suceess, stscredentials := getStsCredentials(awsSession, roleArn)
+	var rdsClient *rds.RDS
+	if !suceess {
+		return false, nil
+	}
+	if stscredentials != nil {
+		provider := NewAssumeRoleCredentialsProvider(stscredentials)
+		rdsClient = rds.New(awsSession,
+			&aws.Config{Credentials: credentials.NewCredentials(provider)})
+	}
+	return false, rdsClient
+}
+
+func GetCloudWatchClientWithRoleArn(awsSession *session.Session, roleArn string) (bool, *cloudwatch.CloudWatch) {
+	success, stscredentials := getStsCredentials(awsSession, roleArn)
+	var cloudWatchClient *cloudwatch.CloudWatch
+	if !success {
+		return false, nil
+	}
+	if stscredentials != nil {
+		provider := NewAssumeRoleCredentialsProvider(stscredentials)
+		cloudWatchClient = cloudwatch.New(awsSession,
+			&aws.Config{Credentials: credentials.NewCredentials(provider)})
+	}
+	return false, cloudWatchClient
+}
+
+func getStsCredentials(awsSession *session.Session, roleArn string) (bool, *sts.Credentials) {
+	success, stsClient := getSTSClient(awsSession)
+	if !success {
+		return false, nil
+	}
+	roleInput := &sts.AssumeRoleInput{}
+	roleInput.RoleArn = aws.String(roleArn)
+	roleInput.RoleSessionName = aws.String(fmt.Sprintf("role@%v", time.Now().Unix()))
+	roleOutput, err := stsClient.AssumeRole(roleInput)
+	if err != nil {
+		return false, nil
+	}
+	if roleOutput != nil {
+		return true, roleOutput.Credentials
+	}
+	return false, nil
+}
+
+func NewAssumeRoleCredentialsProvider(credentials *sts.Credentials) *AssumeRoleCredentialsProvider {
+	return &AssumeRoleCredentialsProvider{
+		AssumeRoleCredentials: credentials,
+	}
+}
+
+type AssumeRoleCredentialsProvider struct {
+	AssumeRoleCredentials *sts.Credentials
+}
+
+func (c AssumeRoleCredentialsProvider) Retrieve() (credentials.Value, error) {
+	return credentials.Value{
+		AccessKeyID:     *c.AssumeRoleCredentials.AccessKeyId,
+		SecretAccessKey: *c.AssumeRoleCredentials.SecretAccessKey,
+		SessionToken:    *c.AssumeRoleCredentials.SessionToken,
+		ProviderName:    "AssumeRoleCredentialsProvider",
+	}, nil
+
+}
+
+func (c AssumeRoleCredentialsProvider) IsExpired() bool {
+	return c.AssumeRoleCredentials.Expiration.After(time.Now())
+
 }

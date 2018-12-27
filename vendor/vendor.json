@@ -39,10 +39,10 @@
 			"revisionTime": "2018-11-18T00:35:51Z"
 		},
 		{
-			"checksumSHA1": "DCPh4otVY1ZJjy+5PlP8lQS7G+g=",
+			"checksumSHA1": "50w1FhroyU3l0dIVfkFkL6lOoQo=",
 			"path": "github.com/aws/aws-sdk-go/aws/credentials",
-			"revision": "50e2f0627dec4e2508ea825884a551ecd393425c",
-			"revisionTime": "2018-11-18T00:35:51Z"
+			"revision": "8234000fff968de811646c75b200b0c713f800ec",
+			"revisionTime": "2018-12-21T22:39:25Z"
 		},
 		{
 			"checksumSHA1": "SWj2iaQWlbmkeMGocmAezLhhWzM=",
@@ -345,10 +345,10 @@
 			"revisionTime": "2018-11-18T00:35:51Z"
 		},
 		{
-			"checksumSHA1": "RUWE0R/YVHOpice7JGvneuR3n2g=",
+			"checksumSHA1": "qAO8sT+yMLJTMjth4W1ETWHr0gY=",
 			"path": "github.com/aws/aws-sdk-go/service/sts",
-			"revision": "50e2f0627dec4e2508ea825884a551ecd393425c",
-			"revisionTime": "2018-11-18T00:35:51Z"
+			"revision": "8234000fff968de811646c75b200b0c713f800ec",
+			"revisionTime": "2018-12-21T22:39:25Z"
 		},
 		{
 			"checksumSHA1": "3KhDEC5MM0iyN+FsLfxpnvFVeuY=",

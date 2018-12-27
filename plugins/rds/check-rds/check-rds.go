@@ -76,7 +76,7 @@ var (
 	period                   int64
 	statistics               string
 	cloudWatchClient         *cloudwatch.CloudWatch
-	roleArn                  bool
+	roleArn                  string
 	dbClusterId              string
 	accpetNil                bool
 	availabilityZoneSeverity string
@@ -114,11 +114,22 @@ func main() {
 		return
 	}
 	awsSession := aws_session.CreateAwsSessionWithRegion(awsRegion)
-	success, rdsClient = awsclient.GetRDSClient(awsSession)
+	if len(roleArn) <= 0 {
+		success, rdsClient = awsclient.GetRDSClient(awsSession)
+	} else {
+		success, rdsClient = awsclient.GetRDSClientWithRoleArn(awsSession, roleArn)
+	}
 	if !success {
 		return
 	}
-	success, cloudWatchClient = awsclient.GetCloudWatchClient(awsSession)
+	if len(roleArn) <= 0 {
+		success, cloudWatchClient = awsclient.GetCloudWatchClient(awsSession)
+	} else {
+		success, cloudWatchClient = awsclient.GetCloudWatchClientWithRoleArn(awsSession, roleArn)
+	}
+	if !success {
+		return
+	}
 	err := getClusterDetails()
 	if err != nil {
 		return
@@ -129,14 +140,14 @@ func main() {
 	}
 	for instance, zone := range dbInstanceZoneMapping {
 		values = make(map[string]*float64)
-		if zone != availabilityZone {
-			if availabilityZoneSeverity == "citical" {
-				fmt.Print("CRITICAL :")
-			} else {
-				fmt.Print("WARNING :")
-			}
-			fmt.Println("Availabilty Zone for DB Instance", instance, " is", zone, ", expected :", availabilityZone)
-		}
+		//if zone != availabilityZone {
+		// if availabilityZoneSeverity == "citical" {
+		// 	fmt.Print("CRITICAL :")
+		// } else {
+		// 	fmt.Print("WARNING :")
+		// }
+		fmt.Println("Availabilty Zone for DB Instance", instance, "is", zone)
+		//}
 		for metric, unit := range metrics {
 			value, err := getCloudWatchMetrics(metric, instance, unit)
 			if err != nil {
@@ -232,7 +243,6 @@ func getFlags() {
 	flag.IntVar(&fetchAge, "fetch_age", 0, "How long ago to fetch metrics from in seconds")
 	flag.Int64Var(&period, "period", 180, "CloudWatch metric statistics period")
 	flag.StringVar(&statistics, "statistics", "average", "CloudWatch statistics method")
-	flag.BoolVar(&roleArn, "role_arn", false, "AWS role arn of the role of the third party account to switch to")
 	flag.StringVar(&dbClusterId, "db_cluster_id", "", "DB cluster identifier")
 	flag.BoolVar(&accpetNil, "accept_nil", false, "Continue if CloudWatch provides no metrics for the time period")
 	flag.StringVar(&availabilityZoneSeverity, "available_zone_severity", "critical", "Trigger a #{severity} if availability zone is different than given argument")
@@ -247,6 +257,7 @@ func getFlags() {
 	flag.Float64Var(&connectionWarning, "connections_warning_over", 40, "Trigger a warning if connection number is over a number")
 	flag.Float64Var(&iopsCritical, "iops_critical_over", 80, "Trigger a critical if iops number is over a Count/Second")
 	flag.Float64Var(&iopsWarning, "iops_warning_over", 40, "Trigger a warning if connection number is over a Count/Second")
+	flag.StringVar(&roleArn, "role_arn", "", "AWS role arn of the role of the third party account to switch to")
 	flag.Parse()
 }
 

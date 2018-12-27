@@ -39,7 +39,7 @@ var (
 
 func main() {
 	var success bool
-	flag.StringVar(&awsRegion, "aws_region", "us-east-2", "AWS Region (defaults to us-east-1).")
+	flag.StringVar(&awsRegion, "aws_region", "us-east-1", "AWS Region (defaults to us-east-1).")
 	flag.StringVar(&tagKeys, "tag_keys", "", "Comma seperated Tag Keys")
 	flag.Parse()
 
@@ -73,33 +73,30 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-
 	if output != nil && output.Buckets != nil && len(output.Buckets) > 1 {
 		for _, bucket := range output.Buckets {
 			bucketInput := &s3.GetBucketTaggingInput{Bucket: bucket.Name}
 			bucketOutput, err := s3Client.GetBucketTagging(bucketInput)
 			if err != nil {
-				missingTagsMap[*bucket.Name] = tags
+				continue
 			}
 			if bucketOutput != nil && bucketOutput.TagSet != nil && len(bucketOutput.TagSet) > 0 {
 				bucketTagMap := make(map[string]*string)
 				for _, bucketTag := range bucketOutput.TagSet {
 					bucketTagMap[*bucketTag.Key] = bucketTag.Key
 				}
-				for tag, _ := range tagMap {
+				for tag, tagValue := range tagMap {
 					if bucketTagMap[tag] != nil {
 						continue
 					} else {
-						missingTagsMap[*bucket.Name] = append(missingTagsMap[*bucket.Name], tag)
+						missingTagsMap[*bucket.Name] = append(missingTagsMap[*bucket.Name], *tagValue)
 					}
 				}
 			}
 		}
 	}
 
-	if len(missingTagsMap) == 0 {
-		fmt.Println("OK")
-	} else {
+	if len(missingTagsMap) > 0 {
 		for bucketName, tags := range missingTagsMap {
 			fmt.Println("CRITICAL : Missing tags for bucket", bucketName, ":", tags)
 		}

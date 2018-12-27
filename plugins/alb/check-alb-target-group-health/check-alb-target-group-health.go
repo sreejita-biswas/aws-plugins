@@ -82,7 +82,7 @@ func getTargerGroups() ([]*elbv2.TargetGroup, error) {
 	}
 	output, err := elbV2lient.DescribeTargetGroups(input)
 	if err != nil {
-		fmt.Println("Error while calling DescribeTargetGroups AWS API,", err.(awserr.Error).Message)
+		fmt.Println("Error while calling DescribeTargetGroups AWS API,", err.(awserr.Error).Message())
 		return nil, err
 	}
 	if !(output != nil && output.TargetGroups != nil && len(output.TargetGroups) > 0) {
